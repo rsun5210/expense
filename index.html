@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ledger Garden</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Local-first expense tracker</p>
+          <h1>Feed in bank or card statements and turn them into something readable.</h1>
+          <p class="hero-text">
+            Import CSV statements, map columns from different institutions, auto-categorize
+            merchants, and keep everything saved in your browser.
+          </p>
+        </div>
+        <div class="hero-card">
+          <p class="hero-card-label">What this supports well</p>
+          <ul>
+            <li>CSV exports from credit cards and banks</li>
+            <li>Mixed imports over time</li>
+            <li>Manual category cleanup</li>
+            <li>Monthly spending summaries</li>
+          </ul>
+          <p class="hero-note">Tip: start with the sample CSV if you want to test the flow fast.</p>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <section class="panel import-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-label">1. Import statements</p>
+              <h2>Add a CSV statement</h2>
+            </div>
+            <div class="action-row">
+              <button id="export-button" class="ghost-button" type="button">Export filtered CSV</button>
+              <button id="save-ledger-button" class="ghost-button" type="button">Save ledger JSON</button>
+              <label class="ghost-button file-button" for="load-ledger-input">Load ledger JSON</label>
+              <input id="load-ledger-input" type="file" accept=".json,application/json" hidden />
+              <button id="clear-data-button" class="ghost-button" type="button">Clear all data</button>
+            </div>
+          </div>
+
+          <label class="dropzone" for="file-input">
+            <input id="file-input" type="file" accept=".csv,text/csv" />
+            <span class="dropzone-title">Choose a CSV or drop it here</span>
+            <span class="dropzone-text">
+              Supports bank and card exports as long as the statement is tabular.
+            </span>
+          </label>
+
+          <div id="mapping-panel" class="mapping-panel hidden">
+            <div class="mapping-heading">
+              <div>
+                <p class="section-label">2. Map the columns</p>
+                <h3>Tell the tracker what each column means</h3>
+              </div>
+              <button id="import-button" class="primary-button" type="button">Import transactions</button>
+            </div>
+
+            <div class="mapping-grid">
+              <label>
+                Date
+                <select id="date-column"></select>
+              </label>
+              <label>
+                Description
+                <select id="description-column"></select>
+              </label>
+              <label>
+                Merchant
+                <select id="merchant-column"></select>
+              </label>
+              <label>
+                Amount
+                <select id="amount-column"></select>
+              </label>
+              <label>
+                Amount style
+                <select id="amount-mode">
+                  <option value="signed">Signed amount</option>
+                  <option value="expense-positive">Expenses are positive</option>
+                  <option value="credit-debit-text">Amount contains CR or DR</option>
+                </select>
+              </label>
+              <label>
+                Credit/debit indicator
+                <select id="type-column"></select>
+              </label>
+              <label>
+                Debit or outflow
+                <select id="debit-column"></select>
+              </label>
+              <label>
+                Credit or inflow
+                <select id="credit-column"></select>
+              </label>
+              <label>
+                Account or card
+                <select id="account-column"></select>
+              </label>
+              <label>
+                Institution name
+                <input id="institution-input" type="text" placeholder="Chase Sapphire or BofA Checking" />
+              </label>
+            </div>
+
+            <p class="mapping-help">
+              Use a signed amount, separate debit and credit columns, or a type column with values like credit, debit, CR, or DR.
+            </p>
+            <p id="mapping-status" class="mapping-status hidden"></p>
+
+            <div class="table-wrap preview-table-wrap">
+              <table>
+                <thead id="preview-head"></thead>
+                <tbody id="preview-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="metrics-grid">
+          <article class="metric-card">
+            <p>Total spending</p>
+            <strong id="metric-spending">$0.00</strong>
+          </article>
+          <article class="metric-card">
+            <p>Total income</p>
+            <strong id="metric-income">$0.00</strong>
+          </article>
+          <article class="metric-card">
+            <p>Transactions</p>
+            <strong id="metric-count">0</strong>
+          </article>
+          <article class="metric-card">
+            <p>Active month</p>
+            <strong id="metric-month">None</strong>
+          </article>
+        </section>
+
+        <section class="panel trends-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-label">3. Trends</p>
+              <h2>Monthly cashflow</h2>
+            </div>
+          </div>
+          <div id="trends-empty" class="empty-state">Import more than one month to see trends.</div>
+          <div id="trends-chart" class="trends-chart"></div>
+        </section>
+
+        <section class="panel summary-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-label">4. Review</p>
+              <h2>Spending by category</h2>
+            </div>
+            <label class="month-filter">
+              Month
+              <select id="month-filter"></select>
+            </label>
+          </div>
+          <div id="summary-empty" class="empty-state">
+            Import some transactions to see your category breakdown.
+          </div>
+          <div id="summary-list" class="summary-list"></div>
+        </section>
+
+        <section class="panel insight-grid-panel">
+          <div class="insight-grid">
+            <section class="insight-block">
+              <div class="panel-heading slim-heading">
+                <div>
+                  <p class="section-label">5. Rules</p>
+                  <h2>Automation rules</h2>
+                </div>
+              </div>
+              <div class="rule-builder">
+                <label>
+                  Merchant contains
+                  <input id="rule-pattern-input" type="text" placeholder="spotify, openai, ralphs..." />
+                </label>
+                <label>
+                  Set category
+                  <select id="rule-category-select"></select>
+                </label>
+                <button id="add-rule-button" class="primary-button" type="button">Add rule</button>
+              </div>
+              <div id="rules-empty" class="empty-state">Add a few rules to auto-categorize repeat merchants.</div>
+              <div id="rules-list" class="rules-list"></div>
+            </section>
+
+            <section class="insight-block">
+              <div class="panel-heading slim-heading">
+                <div>
+                  <p class="section-label">6. Recurring</p>
+                  <h2>Likely subscriptions</h2>
+                </div>
+              </div>
+              <div id="recurring-empty" class="empty-state">We need repeat charges across months to detect subscriptions.</div>
+              <div id="recurring-list" class="recurring-list"></div>
+            </section>
+
+            <section class="insight-block">
+              <div class="panel-heading slim-heading">
+                <div>
+                  <p class="section-label">7. Accounts</p>
+                  <h2>Accounts and transfers</h2>
+                </div>
+              </div>
+              <div id="accounts-empty" class="empty-state">Import account or card columns to break spending out by source.</div>
+              <div id="account-list" class="account-list"></div>
+              <div id="transfer-summary" class="transfer-summary"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel transactions-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-label">8. Refine</p>
+              <h2>Transactions</h2>
+            </div>
+            <div class="action-row">
+              <button id="rerun-categories-button" class="ghost-button" type="button">Re-run categories</button>
+              <label class="search-field">
+                Search
+                <input id="search-input" type="search" placeholder="Merchant, note, institution..." />
+              </label>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Merchant</th>
+                  <th>Institution</th>
+                  <th>Account</th>
+                  <th>Category</th>
+                  <th>Flags</th>
+                  <th class="amount-col">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="transactions-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="summary-item-template">
+      <article class="summary-item">
+        <div>
+          <p class="summary-name"></p>
+          <span class="summary-count"></span>
+        </div>
+        <strong class="summary-amount"></strong>
+      </article>
+    </template>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
