@@ -14,6 +14,7 @@ import {
   applyLearnedCategory as applyLearnedCategoryByMerchant,
   buildAccountStats,
   buildMonthlySeries,
+  buildSearchText,
   buildTransactionId,
   categoryRules,
   clearTransactionSplits,
@@ -29,6 +30,7 @@ import {
   createCurrencyFormatter,
   createDateFormatter,
   createMonthFormatter,
+  buildFlagLabel,
   formatCurrency,
   formatDate,
   formatMonth,
@@ -625,6 +627,7 @@ function loadLedgerFile(event) {
       render();
       window.alert("Ledger file loaded successfully.");
     } catch (error) {
+      console.error("Unable to load ledger file.", error);
       window.alert("That file does not look like a valid Ledger Garden ledger.");
     } finally {
       elements.loadLedgerInput.value = "";

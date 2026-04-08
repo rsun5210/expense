@@ -39,7 +39,7 @@ function buildCell(text, className = "") {
   return cell;
 }
 
-function buildFlagLabel(transaction) {
+export function buildFlagLabel(transaction) {
   const flags = [];
   if (transaction.isTransfer) {
     flags.push(transaction.transferMatchId ? "Matched transfer" : "Transfer");
