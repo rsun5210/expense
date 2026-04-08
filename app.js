@@ -25,6 +25,22 @@ import {
   mergeTransactions as mergeImportedTransactions,
   recategorizeSplits,
 } from "./ledger-domain.mjs";
+import {
+  createCurrencyFormatter,
+  createDateFormatter,
+  createMonthFormatter,
+  formatCurrency,
+  formatDate,
+  formatMonth,
+  renderAccountsAndTransfers,
+  renderMetrics,
+  renderMonthFilter,
+  renderRecurring,
+  renderRules,
+  renderSummary,
+  renderTransactions,
+  renderTrends,
+} from "./ledger-render.mjs";
 
 const STORAGE_KEY = "ledger-garden-data-v2";
 const IMPORT_PRESET_KEY = "ledger-garden-import-presets-v2";
@@ -33,9 +49,9 @@ const RULES_KEY = "ledger-garden-rules-v1";
 const SEARCH_DEBOUNCE_MS = 120;
 const LEDGER_VERSION = 2;
 
-const currencyFormatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
-const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
-const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
+const currencyFormatter = createCurrencyFormatter();
+const dateFormatter = createDateFormatter();
+const monthFormatter = createMonthFormatter();
 
 const state = {
   transactions: [],
@@ -427,324 +443,74 @@ function refreshDerivedState() {
 }
 
 function render() {
-  renderMonthFilter();
+  renderMonthFilter({
+    state,
+    elements,
+    formatMonthLabel: (value) => formatMonth(value, monthFormatter),
+  });
   const monthlyTransactions = getFilteredTransactions({ search: false });
-  renderMetrics(monthlyTransactions);
-  renderTrends();
-  renderSummary(monthlyTransactions);
-  renderRules();
-  renderRecurring();
-  renderAccountsAndTransfers();
-  renderTransactions(getFilteredTransactions({ search: true }));
-}
-
-function renderMonthFilter() {
-  const months = Array.from(new Set(state.transactions.map((transaction) => transaction.date.slice(0, 7)))).sort().reverse();
-  const currentValue = months.includes(state.monthFilter) ? state.monthFilter : "all";
-  state.monthFilter = currentValue;
-  elements.monthFilter.innerHTML = "";
-
-  const allOption = document.createElement("option");
-  allOption.value = "all";
-  allOption.textContent = "All months";
-  elements.monthFilter.appendChild(allOption);
-
-  months.forEach((month) => {
-    const option = document.createElement("option");
-    option.value = month;
-    option.textContent = formatMonth(month);
-    option.selected = month === currentValue;
-    elements.monthFilter.appendChild(option);
+  renderMetrics({
+    state,
+    elements,
+    visibleTransactions: monthlyTransactions,
+    isMoneyMovement,
+    formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
+    formatMonthLabel: (value) => formatMonth(value, monthFormatter),
   });
-}
-
-function renderMetrics(visibleTransactions) {
-  const spending = visibleTransactions.filter((item) => item.amount < 0 && !isMoneyMovement(item)).reduce((sum, item) => sum + Math.abs(item.amount), 0);
-  const income = visibleTransactions.filter((item) => item.amount > 0 && !isMoneyMovement(item)).reduce((sum, item) => sum + item.amount, 0);
-  const activeMonth =
-    state.monthFilter === "all"
-      ? visibleTransactions[0]?.date
-        ? formatMonth(visibleTransactions[0].date.slice(0, 7))
-        : "All data"
-      : formatMonth(state.monthFilter);
-
-  elements.metricSpending.textContent = formatCurrency(spending);
-  elements.metricIncome.textContent = formatCurrency(income);
-  elements.metricCount.textContent = String(visibleTransactions.length);
-  elements.metricMonth.textContent = activeMonth;
-}
-
-function renderTrends() {
-  const months = buildMonthlySeries(state.transactions).slice(-6);
-  elements.trendsChart.innerHTML = "";
-  if (months.length < 2) {
-    elements.trendsEmpty.hidden = false;
-    return;
-  }
-
-  elements.trendsEmpty.hidden = true;
-  const maxValue = Math.max(...months.flatMap((month) => [month.spending, month.income]), 1);
-  const fragment = document.createDocumentFragment();
-
-  months.forEach((month) => {
-    const card = document.createElement("article");
-    card.className = "trend-card";
-    card.innerHTML = `
-      <div class="trend-top">
-        <strong>${formatMonth(month.month)}</strong>
-        <span>Net ${formatCurrency(month.income - month.spending)}</span>
-      </div>
-      <div class="trend-bars">
-        <div class="trend-bar-row">
-          <span>Spend</span>
-          <div class="trend-bar-shell"><div class="trend-bar spend" style="width:${(month.spending / maxValue) * 100}%"></div></div>
-          <strong>${formatCurrency(month.spending)}</strong>
-        </div>
-        <div class="trend-bar-row">
-          <span>Income</span>
-          <div class="trend-bar-shell"><div class="trend-bar income" style="width:${(month.income / maxValue) * 100}%"></div></div>
-          <strong>${formatCurrency(month.income)}</strong>
-        </div>
-      </div>
-    `;
-    fragment.appendChild(card);
+  renderTrends({
+    elements,
+    months: buildMonthlySeries(state.transactions).slice(-6),
+    formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
+    formatMonthLabel: (value) => formatMonth(value, monthFormatter),
   });
-
-  elements.trendsChart.appendChild(fragment);
-}
-
-function renderSummary(transactions) {
-  const visibleTransactions = transactions.filter((item) => item.amount < 0 && !isMoneyMovement(item));
-  elements.summaryList.innerHTML = "";
-  if (!visibleTransactions.length) {
-    elements.summaryEmpty.hidden = false;
-    return;
-  }
-
-  elements.summaryEmpty.hidden = true;
-  const grouped = new Map();
-  visibleTransactions.forEach((transaction) => {
-    const items = getCategoryBreakdown(transaction);
-    items.forEach((item) => {
-      const existing = grouped.get(item.category) || { amount: 0, count: 0 };
-      existing.amount += Math.abs(item.amount);
-      existing.count += 1;
-      grouped.set(item.category, existing);
-    });
+  renderSummary({
+    elements,
+    transactions: monthlyTransactions,
+    isMoneyMovement,
+    getCategoryBreakdown,
+    formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
   });
-
-  const fragment = document.createDocumentFragment();
-  [...grouped.entries()]
-    .sort((left, right) => right[1].amount - left[1].amount)
-    .forEach(([category, stats]) => {
-      const node = elements.summaryItemTemplate.content.cloneNode(true);
-      node.querySelector(".summary-name").textContent = category;
-      node.querySelector(".summary-count").textContent = `${stats.count} transaction${stats.count === 1 ? "" : "s"}`;
-      node.querySelector(".summary-amount").textContent = formatCurrency(stats.amount);
-      fragment.appendChild(node);
-    });
-  elements.summaryList.appendChild(fragment);
-}
-
-function renderRules() {
-  elements.rulesList.innerHTML = "";
-  if (!state.rules.length) {
-    elements.rulesEmpty.hidden = false;
-    return;
-  }
-
-  elements.rulesEmpty.hidden = true;
-  const fragment = document.createDocumentFragment();
-  state.rules.forEach((rule) => {
-    const row = document.createElement("article");
-    row.className = "mini-card rule-card";
-    row.innerHTML = `
-      <div>
-        <strong>${escapeHtml(rule.pattern)}</strong>
-        <p>Category: ${escapeHtml(rule.category)}</p>
-      </div>
-    `;
-    const button = document.createElement("button");
-    button.className = "ghost-button small-button";
-    button.type = "button";
-    button.textContent = "Remove";
-    button.addEventListener("click", () => {
+  renderRules({
+    elements,
+    rules: state.rules,
+    onRemoveRule: (rule) => {
       state.rules = state.rules.filter((current) => current.id !== rule.id);
       if (state.transactions.length) {
         rerunCategories();
       } else {
         saveData();
-        renderRules();
+        render();
       }
-    });
-    row.appendChild(button);
-    fragment.appendChild(row);
+    },
   });
-  elements.rulesList.appendChild(fragment);
-}
-
-function renderRecurring() {
-  elements.recurringList.innerHTML = "";
-  const recurringSeries = [...detectRecurringSeries(state.transactions).values()].sort((left, right) => right.count - left.count);
-  if (!recurringSeries.length) {
-    elements.recurringEmpty.hidden = false;
-    return;
-  }
-
-  elements.recurringEmpty.hidden = true;
-  const fragment = document.createDocumentFragment();
-  recurringSeries.forEach((series) => {
-    const item = document.createElement("article");
-    item.className = "mini-card";
-    item.innerHTML = `
-      <div>
-        <strong>${series.label}</strong>
-        <p>${series.count} charges across ${series.monthCount} months</p>
-      </div>
-      <div class="mini-card-value">
-        <strong>${formatCurrency(series.averageAmount)}</strong>
-        <span>${series.frequencyLabel}</span>
-      </div>
-    `;
-    fragment.appendChild(item);
+  renderRecurring({
+    elements,
+    recurringSeries: [...detectRecurringSeries(state.transactions).values()].sort((left, right) => right.count - left.count),
+    formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
   });
-  elements.recurringList.appendChild(fragment);
-}
-
-function renderAccountsAndTransfers() {
-  elements.accountList.innerHTML = "";
-  elements.transferSummary.innerHTML = "";
-
-  const accountStats = buildAccountStats(state.transactions);
-  if (!accountStats.length) {
-    elements.accountsEmpty.hidden = false;
-  } else {
-    elements.accountsEmpty.hidden = true;
-    const fragment = document.createDocumentFragment();
-    accountStats.forEach((account) => {
-      const item = document.createElement("article");
-      item.className = "mini-card";
-      item.innerHTML = `
-        <div>
-          <strong>${account.label}</strong>
-          <p>${account.count} transaction${account.count === 1 ? "" : "s"}</p>
-        </div>
-        <div class="mini-card-value">
-          <strong>${formatCurrency(account.spending)}</strong>
-          <span>${account.institution}</span>
-        </div>
-      `;
-      fragment.appendChild(item);
-    });
-    elements.accountList.appendChild(fragment);
-  }
-
-  const matchedTransfers = state.transactions.filter((transaction) => transaction.transferMatchId).length / 2;
-  const unmatchedTransfers = state.transactions.filter((transaction) => transaction.isTransfer && !transaction.transferMatchId).length;
-  elements.transferSummary.innerHTML = `
-    <article class="transfer-card">
-      <strong>${matchedTransfers}</strong>
-      <span>matched transfer pair${matchedTransfers === 1 ? "" : "s"}</span>
-    </article>
-    <article class="transfer-card">
-      <strong>${unmatchedTransfers}</strong>
-      <span>unmatched transfer row${unmatchedTransfers === 1 ? "" : "s"}</span>
-    </article>
-  `;
-}
-
-function renderTransactions(visibleTransactions) {
-  elements.transactionsBody.innerHTML = "";
-  if (!visibleTransactions.length) {
-    const row = document.createElement("tr");
-    row.innerHTML = `<td colspan="8">No transactions match the current filters yet.</td>`;
-    elements.transactionsBody.appendChild(row);
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  visibleTransactions.forEach((transaction) => {
-    const row = document.createElement("tr");
-    row.appendChild(buildCell(formatDate(transaction.date)));
-    row.appendChild(buildCell(transaction.description));
-    row.appendChild(buildCell(transaction.merchant || transaction.rawMerchant || transaction.description));
-    row.appendChild(buildCell(transaction.institution));
-    row.appendChild(buildCell(transaction.account || "Unlabeled"));
-
-    const categoryCell = document.createElement("td");
-    const categorySelect = document.createElement("select");
-    categorySelect.className = "category-select";
-    defaultCategories.forEach((category) => {
-      const option = document.createElement("option");
-      option.value = category;
-      option.textContent = category;
-      option.selected = category === transaction.category;
-      categorySelect.appendChild(option);
-    });
-    categorySelect.addEventListener("change", (event) => {
+  renderAccountsAndTransfers({
+    elements,
+    transactions: state.transactions,
+    accountStats: buildAccountStats(state.transactions),
+    formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
+  });
+  renderTransactions({
+    elements,
+    visibleTransactions: getFilteredTransactions({ search: true }),
+    defaultCategories,
+    formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
+    formatDateValue: (value) => formatDate(value, dateFormatter),
+    onCategoryChange: (transaction, category) => {
       clearTransactionSplits(transaction);
-      const updatedState = applyLearnedCategoryByMerchant(transaction, event.target.value, state.merchantRules, state.transactions);
+      const updatedState = applyLearnedCategoryByMerchant(transaction, category, state.merchantRules, state.transactions);
       state.merchantRules = updatedState.merchantRules;
       state.transactions = updatedState.transactions;
       refreshDerivedState();
       saveData();
       render();
-    });
-    if (transaction.splits?.length) {
-      categorySelect.disabled = true;
-    }
-    categoryCell.appendChild(categorySelect);
-    row.appendChild(categoryCell);
-
-    row.appendChild(buildFlagCell(transaction));
-
-    const amountCell = buildCell(formatCurrency(transaction.amount), "amount-cell");
-    amountCell.classList.add(transaction.amount >= 0 ? "positive" : "negative");
-    row.appendChild(amountCell);
-    fragment.appendChild(row);
+    },
+    onEditSplit: editTransactionSplit,
   });
-  elements.transactionsBody.appendChild(fragment);
-}
-
-function buildFlagLabel(transaction) {
-  const flags = [];
-  if (transaction.isTransfer) {
-    flags.push(transaction.transferMatchId ? "Matched transfer" : "Transfer");
-  }
-  if (transaction.recurringKey) {
-    flags.push("Recurring");
-  }
-  if (transaction.splits?.length) {
-    flags.push("Split");
-  }
-  return flags.join(" · ") || "Purchase";
-}
-
-function buildFlagCell(transaction) {
-  const cell = document.createElement("td");
-  cell.className = "flag-cell";
-  const text = document.createElement("div");
-  text.textContent = buildFlagLabel(transaction);
-  cell.appendChild(text);
-
-  const splitButton = document.createElement("button");
-  splitButton.className = "ghost-button small-button";
-  splitButton.type = "button";
-  splitButton.textContent = transaction.splits?.length ? "Edit split" : "Split";
-  splitButton.addEventListener("click", () => {
-    editTransactionSplit(transaction);
-  });
-  cell.appendChild(splitButton);
-  return cell;
-}
-
-function buildCell(text, className = "") {
-  const cell = document.createElement("td");
-  cell.textContent = text;
-  if (className) {
-    cell.className = className;
-  }
-  return cell;
 }
 
 function getFilteredTransactions({ search }) {
@@ -796,19 +562,6 @@ function rerunCategories() {
 
 function guessColumn(headers, pattern) {
   return headers.find((header) => pattern.test(header)) || "";
-}
-
-function formatCurrency(value) {
-  return currencyFormatter.format(value);
-}
-
-function formatDate(value) {
-  return dateFormatter.format(new Date(`${value}T12:00:00`));
-}
-
-function formatMonth(value) {
-  const [year, month] = value.split("-");
-  return monthFormatter.format(new Date(Number(year), Number(month) - 1, 1));
 }
 
 function exportFilteredTransactions() {
@@ -908,7 +661,7 @@ function addRuleFromInputs() {
     rerunCategories();
   } else {
     saveData();
-    renderRules();
+    render();
   }
 }
 
@@ -944,13 +697,6 @@ function editTransactionSplit(transaction) {
   refreshDerivedState();
   saveData();
   render();
-}
-
-function escapeHtml(text) {
-  return String(text)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 }
 
 function downloadBlob(blob, filename) {
