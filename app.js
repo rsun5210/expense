@@ -1,21 +1,30 @@
 import {
-  applyDirectionToAmount,
   buildMerchantKey,
   cleanText,
-  daysBetween,
   detectAmountMode,
   escapeCsvValue,
-  inferDirectionFromText,
   isPlainObject,
   normalizeDate,
-  normalizeMerchantKey,
   normalizeMerchantLabel,
-  parseAmountDetails,
   parseCsv,
-  parseCurrency,
   parseSplitInput,
   resolveAmount,
 } from "./ledger-core.mjs";
+import {
+  applyLearnedCategory as applyLearnedCategoryByMerchant,
+  buildAccountStats,
+  buildMonthlySeries,
+  buildTransactionId,
+  categoryRules,
+  clearTransactionSplits,
+  detectRecurringSeries,
+  getCategoryBreakdown,
+  hydrateTransaction,
+  inferCategory,
+  matchTransfers,
+  mergeTransactions as mergeImportedTransactions,
+  recategorizeSplits,
+} from "./ledger-domain.mjs";
 
 const STORAGE_KEY = "ledger-garden-data-v2";
 const IMPORT_PRESET_KEY = "ledger-garden-import-presets-v2";
@@ -57,21 +66,6 @@ const defaultCategories = [
   "Fees",
   "Taxes",
   "Other",
-];
-
-const categoryRules = [
-  { match: /whole foods|trader joe|costco|safeway|ralphs|grocery/i, category: "Groceries" },
-  { match: /coffee|starbucks|philz|blue bottle/i, category: "Coffee" },
-  { match: /uber|lyft|shell|chevron|76 |7-eleven|fuel|gas/i, category: "Transportation" },
-  { match: /netflix|spotify|openai|chatgpt|apple\.com\/bill|hulu|subscription/i, category: "Subscriptions" },
-  { match: /payroll|salary|direct deposit|income/i, category: "Income" },
-  { match: /rent|landlord|mortgage|bilt housing/i, category: "Housing" },
-  { match: /restaurant|cafe|grill|doordash|ubereats|chipotle|spitz|pizza|fooda/i, category: "Dining" },
-  { match: /transfer|payment thank you|autopay|statement credit|refund|reversal|bilt rewards/i, category: "Transfer" },
-  { match: /insurance/i, category: "Insurance" },
-  { match: /walgreens|cvs|hospital|medical|dental/i, category: "Health" },
-  { match: /ticket|festival|music|crssd|movie/i, category: "Entertainment" },
-  { match: /usps|post office/i, category: "Other" },
 ];
 
 const elements = {
@@ -330,7 +324,7 @@ function createTransactionFromRow(row, mapping) {
   const merchant = normalizeMerchantLabel(rawMerchant || description);
   const account = mapping.account ? cleanText(row[mapping.account]) : "";
   const institution = mapping.institution;
-  const category = inferCategory(merchant, amount);
+  const category = categorizeTransaction(merchant, amount);
 
   return hydrateTransaction({
     id: buildTransactionId(date, description, amount, institution, account),
@@ -347,47 +341,10 @@ function createTransactionFromRow(row, mapping) {
   });
 }
 
-function inferCategory(merchant, amount) {
-  const ruleCategory = matchRuleCategory(merchant);
-  if (ruleCategory) {
-    return ruleCategory;
-  }
-
-  const learnedCategory = state.merchantRules[normalizeMerchantKey(merchant)];
-  if (learnedCategory) {
-    return learnedCategory;
-  }
-  if (isTransferLikeText(merchant)) {
-    return "Transfer";
-  }
-  if (amount > 0) {
-    const incomeMatch = categoryRules.find((rule) => rule.category === "Income" && rule.match.test(merchant));
-    return incomeMatch ? "Income" : "Other";
-  }
-  const match = categoryRules.find((rule) => rule.match.test(merchant));
-  return match ? match.category : "Other";
-}
-
-function isTransferLikeText(value) {
-  return /refund|reversal|statement credit|credit back|payment|autopay|transfer|venmo|zelle|bilt rewards|bilt housing/i.test(value);
-}
-
-function buildTransactionId(date, description, amount, institution, account) {
-  return [date, description.toLowerCase(), amount.toFixed(2), institution.toLowerCase(), String(account || "").toLowerCase()].join("::");
-}
-
 function mergeTransactions(importedTransactions) {
-  const existingIds = new Set(state.transactions.map((transaction) => transaction.id));
-  let added = 0;
-  importedTransactions.forEach((transaction) => {
-    if (!existingIds.has(transaction.id) && !isLikelyDuplicate(transaction, state.transactions)) {
-      state.transactions.push(transaction);
-      existingIds.add(transaction.id);
-      added += 1;
-    }
-  });
-  state.transactions.sort((left, right) => right.date.localeCompare(left.date));
-  return added;
+  const result = mergeImportedTransactions(importedTransactions, state.transactions);
+  state.transactions = result.transactions;
+  return result.added;
 }
 
 function clearAllData() {
@@ -726,7 +683,9 @@ function renderTransactions(visibleTransactions) {
     });
     categorySelect.addEventListener("change", (event) => {
       clearTransactionSplits(transaction);
-      applyLearnedCategory(transaction, event.target.value);
+      const updatedState = applyLearnedCategoryByMerchant(transaction, event.target.value, state.merchantRules, state.transactions);
+      state.merchantRules = updatedState.merchantRules;
+      state.transactions = updatedState.transactions;
       refreshDerivedState();
       saveData();
       render();
@@ -805,42 +764,6 @@ function isMoneyMovement(transaction) {
   return transaction.isTransfer;
 }
 
-function hydrateTransaction(transaction) {
-  const merchant = transaction.merchant || normalizeMerchantLabel(transaction.rawMerchant || transaction.description);
-  const hydrated = {
-    ...transaction,
-    rawMerchant: transaction.rawMerchant || merchant || transaction.description,
-    merchant,
-    merchantKey: transaction.merchantKey || buildMerchantKey({ merchant, rawMerchant: transaction.rawMerchant || merchant, description: transaction.description }),
-    account: transaction.account || "",
-    institution: transaction.institution || "Imported Statement",
-    transferMatchId: transaction.transferMatchId || "",
-    isTransfer: Boolean(transaction.isTransfer),
-    recurringKey: transaction.recurringKey || "",
-    recurringLabel: transaction.recurringLabel || "",
-    recurringCount: transaction.recurringCount || 0,
-    recurringAverage: transaction.recurringAverage || 0,
-    splits: Array.isArray(transaction.splits) ? transaction.splits : [],
-  };
-  hydrated.searchText = buildSearchText(hydrated);
-  return hydrated;
-}
-
-function buildSearchText(transaction) {
-  return [
-    transaction.description,
-    transaction.merchant,
-    transaction.rawMerchant,
-    transaction.category,
-    transaction.institution,
-    transaction.account,
-    transaction.recurringLabel,
-    ...(transaction.splits || []).map((split) => split.category),
-  ]
-    .join(" ")
-    .toLowerCase();
-}
-
 function getImportPreset(headers) {
   return state.importPresets[buildHeaderSignature(headers)] || null;
 }
@@ -853,21 +776,6 @@ function buildHeaderSignature(headers) {
   return headers.map((header) => header.trim().toLowerCase()).join("|");
 }
 
-function applyLearnedCategory(sourceTransaction, category) {
-  const merchantKey = sourceTransaction.merchantKey;
-  if (!merchantKey) {
-    sourceTransaction.category = category;
-    return;
-  }
-
-  state.merchantRules[merchantKey] = category;
-  state.transactions.forEach((transaction) => {
-    if (transaction.merchantKey === merchantKey) {
-      transaction.category = category;
-    }
-  });
-}
-
 function rerunCategories() {
   if (!state.transactions.length) {
     window.alert("There are no transactions to recategorize yet.");
@@ -876,145 +784,14 @@ function rerunCategories() {
   state.transactions = state.transactions.map((transaction) =>
     hydrateTransaction({
       ...transaction,
-      category: inferCategory(transaction.merchant || transaction.description, transaction.amount),
-      splits: recategorizeSplits(transaction),
+      category: categorizeTransaction(transaction.merchant || transaction.description, transaction.amount),
+      splits: recategorizeSplits(transaction, categorizeTransaction),
     }),
   );
   refreshDerivedState();
   saveData();
   render();
   window.alert("Re-ran category rules across all transactions.");
-}
-
-function recategorizeSplits(transaction) {
-  if (!transaction.splits?.length) {
-    return transaction.splits || [];
-  }
-
-  return transaction.splits.map((split) => ({
-    ...split,
-    category: split.category || inferCategory(transaction.merchant || transaction.description, split.amount),
-  }));
-}
-
-function matchTransfers(transactions) {
-  transactions.forEach((transaction) => {
-    transaction.transferMatchId = "";
-    transaction.isTransfer = transaction.category === "Transfer" || isTransferLikeText(transaction.description) || isTransferLikeText(transaction.merchant);
-  });
-
-  const transfers = transactions.filter((transaction) => transaction.isTransfer).slice().sort((left, right) => left.date.localeCompare(right.date));
-  const used = new Set();
-
-  for (let index = 0; index < transfers.length; index += 1) {
-    const current = transfers[index];
-    if (used.has(current.id)) {
-      continue;
-    }
-
-    for (let matchIndex = index + 1; matchIndex < transfers.length; matchIndex += 1) {
-      const candidate = transfers[matchIndex];
-      if (used.has(candidate.id)) {
-        continue;
-      }
-
-      if (current.account && candidate.account && current.account === candidate.account) {
-        continue;
-      }
-
-      if (Math.abs(current.amount + candidate.amount) > 0.01) {
-        continue;
-      }
-
-      if (Math.abs(daysBetween(current.date, candidate.date)) > 4) {
-        continue;
-      }
-
-      current.transferMatchId = candidate.id;
-      candidate.transferMatchId = current.id;
-      used.add(current.id);
-      used.add(candidate.id);
-      break;
-    }
-  }
-}
-
-function detectRecurringSeries(transactions) {
-  const groups = new Map();
-  transactions
-    .filter((transaction) => transaction.amount < 0 && !transaction.isTransfer)
-    .forEach((transaction) => {
-      if (!transaction.merchantKey) {
-        return;
-      }
-      const current = groups.get(transaction.merchantKey) || [];
-      current.push(transaction);
-      groups.set(transaction.merchantKey, current);
-    });
-
-  const recurring = new Map();
-  groups.forEach((items, key) => {
-    const months = new Set(items.map((item) => item.date.slice(0, 7)));
-    if (items.length < 2 || months.size < 2) {
-      return;
-    }
-
-    const amounts = items.map((item) => Math.abs(item.amount));
-    const averageAmount = amounts.reduce((sum, value) => sum + value, 0) / amounts.length;
-    const maxVariance = Math.max(...amounts.map((value) => Math.abs(value - averageAmount)));
-    if (maxVariance > Math.max(averageAmount * 0.2, 8)) {
-      return;
-    }
-
-    recurring.set(key, {
-      key,
-      label: items[0].merchant || items[0].description,
-      count: items.length,
-      monthCount: months.size,
-      averageAmount,
-      frequencyLabel: months.size >= 2 ? "Likely monthly" : "Repeats",
-    });
-  });
-
-  return recurring;
-}
-
-function buildMonthlySeries(transactions) {
-  const grouped = new Map();
-  transactions.forEach((transaction) => {
-    const key = transaction.date.slice(0, 7);
-    const existing = grouped.get(key) || { month: key, spending: 0, income: 0 };
-    if (transaction.amount < 0 && !transaction.isTransfer) {
-      existing.spending += Math.abs(transaction.amount);
-    }
-    if (transaction.amount > 0 && !transaction.isTransfer) {
-      existing.income += transaction.amount;
-    }
-    grouped.set(key, existing);
-  });
-  return [...grouped.values()].sort((left, right) => left.month.localeCompare(right.month));
-}
-
-function buildAccountStats(transactions) {
-  const grouped = new Map();
-  transactions.forEach((transaction) => {
-    if (!transaction.account) {
-      return;
-    }
-    const key = `${transaction.institution}::${transaction.account}`;
-    const existing = grouped.get(key) || {
-      label: transaction.account,
-      institution: transaction.institution,
-      spending: 0,
-      count: 0,
-    };
-    if (transaction.amount < 0 && !transaction.isTransfer) {
-      existing.spending += Math.abs(transaction.amount);
-    }
-    existing.count += 1;
-    grouped.set(key, existing);
-  });
-  return [...grouped.values()].sort((left, right) => right.spending - left.spending);
 }
 
 function guessColumn(headers, pattern) {
@@ -1135,39 +912,6 @@ function addRuleFromInputs() {
   }
 }
 
-function matchRuleCategory(merchant) {
-  const normalized = normalizeMerchantKey(merchant);
-  const rule = state.rules.find((current) => normalized.includes(current.pattern));
-  return rule ? rule.category : "";
-}
-
-function isLikelyDuplicate(candidate, existingTransactions) {
-  return existingTransactions.some((existing) => {
-    if (candidate.id === existing.id) {
-      return true;
-    }
-    if (Math.abs(candidate.amount - existing.amount) > 0.01) {
-      return false;
-    }
-    if (candidate.account && existing.account && candidate.account !== existing.account) {
-      return false;
-    }
-    if (Math.abs(daysBetween(candidate.date, existing.date)) > 2) {
-      return false;
-    }
-    const sameMerchant = candidate.merchantKey && existing.merchantKey && candidate.merchantKey === existing.merchantKey;
-    const sameDescription = normalizeMerchantKey(candidate.description) === normalizeMerchantKey(existing.description);
-    return sameMerchant || sameDescription;
-  });
-}
-
-function getCategoryBreakdown(transaction) {
-  if (transaction.splits?.length) {
-    return transaction.splits;
-  }
-  return [{ category: transaction.category, amount: transaction.amount }];
-}
-
 function editTransactionSplit(transaction) {
   const currentValue = transaction.splits?.length
     ? transaction.splits.map((split) => `${split.category}:${Math.abs(split.amount).toFixed(2)}`).join(", ")
@@ -1202,10 +946,6 @@ function editTransactionSplit(transaction) {
   render();
 }
 
-function clearTransactionSplits(transaction) {
-  transaction.splits = [];
-}
-
 function escapeHtml(text) {
   return String(text)
     .replace(/&/g, "&amp;")
@@ -1220,4 +960,14 @@ function downloadBlob(blob, filename) {
   link.download = filename;
   link.click();
   window.URL.revokeObjectURL(url);
+}
+
+function categorizeTransaction(merchant, amount) {
+  return inferCategory({
+    merchant,
+    amount,
+    rules: state.rules,
+    merchantRules: state.merchantRules,
+    categoryMatchers: categoryRules,
+  });
 }

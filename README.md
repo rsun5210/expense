@@ -22,8 +22,8 @@ Ledger Garden is a local-first expense tracker for importing bank and credit-car
 
 ## Testing
 
-If you have Node.js available, run `node --test tests/ledger-core.test.mjs` from `/Users/ryansun/Documents/Expense Tracker`.
-These smoke tests cover CSV parsing, amount normalization, split parsing, and export escaping in the shared ledger core.
+If you have Node.js available, run `node --test tests/*.test.mjs` from `/Users/ryansun/Documents/Expense Tracker`.
+These smoke tests cover the shared ledger core plus categorization, deduping, transfer matching, and monthly summaries in the extracted domain module.
 
 ## Sample data
 
