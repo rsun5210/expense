@@ -7,7 +7,6 @@ import {
   normalizeDate,
   normalizeMerchantLabel,
   parseCsv,
-  parseSplitInput,
   resolveAmount,
 } from "./ledger-core.mjs";
 import {
@@ -163,6 +162,9 @@ const elements = {
   dialogField: document.querySelector("#dialog-field"),
   dialogFieldLabel: document.querySelector("#dialog-field-label"),
   dialogInput: document.querySelector("#dialog-input"),
+  splitBuilder: document.querySelector("#split-builder"),
+  splitRows: document.querySelector("#split-rows"),
+  splitAddRowButton: document.querySelector("#split-add-row-button"),
   dialogError: document.querySelector("#dialog-error"),
   dialogCancelButton: document.querySelector("#dialog-cancel-button"),
   dialogConfirmButton: document.querySelector("#dialog-confirm-button"),
@@ -203,12 +205,14 @@ function openDialog({
   mode = "text",
   tone = "primary",
   validate = null,
+  splitRows = [],
+  transactionAmount = 0,
 } = {}) {
   if (state.dialogResolver) {
     closeDialog({ confirmed: false });
   }
 
-  state.dialogOptions = { mode, validate };
+  state.dialogOptions = { mode, validate, transactionAmount };
   elements.dialogEyebrow.textContent = mode === "confirm" ? "Confirm action" : "Update details";
   elements.dialogTitle.textContent = title;
   elements.dialogDescription.textContent = description;
@@ -221,11 +225,19 @@ function openDialog({
   elements.dialogInput.rows = rows;
   elements.dialogError.textContent = "";
   elements.dialogError.classList.add("hidden");
-  elements.dialogField.classList.toggle("hidden", mode === "confirm");
+  elements.dialogField.classList.toggle("hidden", mode === "confirm" || mode === "split");
+  elements.splitBuilder.classList.toggle("hidden", mode !== "split");
+  if (mode === "split") {
+    renderSplitRows(splitRows, transactionAmount);
+  } else {
+    elements.splitRows.innerHTML = "";
+  }
   elements.dialogBackdrop.classList.remove("hidden");
 
   window.setTimeout(() => {
-    if (mode !== "confirm") {
+    if (mode === "split") {
+      elements.splitRows.querySelector("select, input")?.focus();
+    } else if (mode !== "confirm") {
       elements.dialogInput.focus();
       elements.dialogInput.setSelectionRange(elements.dialogInput.value.length, elements.dialogInput.value.length);
     } else {
@@ -256,7 +268,12 @@ function submitDialog() {
   }
 
   const options = state.dialogOptions || {};
-  const value = options.mode === "confirm" ? "" : elements.dialogInput.value;
+  const value =
+    options.mode === "confirm"
+      ? ""
+      : options.mode === "split"
+        ? collectSplitBuilderValue(options.transactionAmount)
+        : elements.dialogInput.value;
   const error = typeof options.validate === "function" ? options.validate(value) : "";
   if (error) {
     elements.dialogError.textContent = error;
@@ -269,6 +286,10 @@ function submitDialog() {
 
 function promptForText(options) {
   return openDialog({ ...options, mode: "text" });
+}
+
+function promptForSplit(options) {
+  return openDialog({ ...options, mode: "split" });
 }
 
 function promptForConfirmation(options) {
@@ -309,6 +330,7 @@ function bindEvents() {
 function bindDialogEvents() {
   elements.dialogCancelButton.addEventListener("click", () => closeDialog({ confirmed: false }));
   elements.dialogConfirmButton.addEventListener("click", submitDialog);
+  elements.splitAddRowButton.addEventListener("click", () => addSplitRow());
   elements.dialogInput.addEventListener("keydown", (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       submitDialog();
@@ -324,6 +346,106 @@ function bindDialogEvents() {
       closeDialog({ confirmed: false });
     }
   });
+}
+
+function getSplitCategoryOptions() {
+  return defaultCategories.filter((category) => !["Income", "Transfer"].includes(category));
+}
+
+function renderSplitRows(splitRows = [], transactionAmount = 0) {
+  elements.splitRows.innerHTML = "";
+  const normalizedRows =
+    splitRows.length > 0
+      ? splitRows.map((split) => ({
+          category: split.category || "Other",
+          amount: Math.abs(Number(split.amount || 0)),
+        }))
+      : [
+          {
+            category: "Other",
+            amount: Math.abs(transactionAmount || 0),
+          },
+        ];
+
+  normalizedRows.forEach((split) => addSplitRow(split));
+}
+
+function addSplitRow(split = { category: "Other", amount: 0 }) {
+  const row = document.createElement("div");
+  row.className = "split-row";
+
+  const categoryLabel = document.createElement("label");
+  categoryLabel.innerHTML = "<span>Category</span>";
+  const categorySelect = document.createElement("select");
+  categorySelect.className = "split-category-select";
+  getSplitCategoryOptions().forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    option.selected = category === split.category;
+    categorySelect.appendChild(option);
+  });
+  categoryLabel.appendChild(categorySelect);
+
+  const amountLabel = document.createElement("label");
+  amountLabel.innerHTML = "<span>Amount</span>";
+  const amountInput = document.createElement("input");
+  amountInput.className = "split-amount-input";
+  amountInput.type = "number";
+  amountInput.min = "0";
+  amountInput.step = "0.01";
+  amountInput.placeholder = "0.00";
+  amountInput.value = split.amount ? Number(split.amount).toFixed(2) : "";
+  amountLabel.appendChild(amountInput);
+
+  const removeButton = document.createElement("button");
+  removeButton.className = "ghost-button small-button";
+  removeButton.type = "button";
+  removeButton.textContent = "Remove";
+  removeButton.addEventListener("click", () => {
+    row.remove();
+  });
+
+  row.appendChild(categoryLabel);
+  row.appendChild(amountLabel);
+  row.appendChild(removeButton);
+  elements.splitRows.appendChild(row);
+}
+
+function collectSplitBuilderValue(transactionAmount) {
+  const rows = [...elements.splitRows.querySelectorAll(".split-row")].map((row) => ({
+    category: row.querySelector(".split-category-select")?.value || "",
+    amount: Number.parseFloat(row.querySelector(".split-amount-input")?.value || ""),
+  }));
+
+  const filledRows = rows.filter((row) => row.category || Number.isFinite(row.amount));
+  if (!filledRows.length) {
+    return [];
+  }
+
+  return filledRows.map((row) => ({
+    category: row.category,
+    amount: transactionAmount < 0 ? -Math.abs(row.amount) : Math.abs(row.amount),
+  }));
+}
+
+function validateSplitBuilderValue(value, transactionAmount) {
+  if (!Array.isArray(value) || !value.length) {
+    return "";
+  }
+
+  for (const split of value) {
+    if (!split.category || !Number.isFinite(split.amount) || Math.abs(split.amount) <= 0) {
+      return "Each split row needs a category and a positive amount.";
+    }
+  }
+
+  const total = value.reduce((sum, split) => sum + split.amount, 0);
+  if (Math.abs(total - transactionAmount) > 0.02) {
+    return "The split amounts need to add up to the full transaction total.";
+  }
+
+  return "";
 }
 
 function bindDropzoneEvents() {
@@ -1063,22 +1185,15 @@ async function editTransactionNote(transaction) {
 }
 
 async function editTransactionSplit(transaction) {
-  const currentValue = transaction.splits?.length
-    ? transaction.splits.map((split) => `${split.category}:${Math.abs(split.amount).toFixed(2)}`).join(", ")
-    : "";
-  const result = await promptForText({
+  const hasExistingSplit = Boolean(transaction.splits?.length);
+  const result = await promptForSplit({
     title: "Split this transaction",
-    description: "Use entries like Groceries:52.10, Household:21.30. Leave the field empty to clear the split.",
-    confirmLabel: currentValue ? "Update split" : "Save split",
-    fieldLabel: "Split amounts",
-    value: currentValue,
-    placeholder: "Groceries:52.10, Household:21.30",
-    rows: 3,
+    description: "Pick categories from the dropdown and enter positive amounts. Remove all rows if you want to clear the split.",
+    confirmLabel: hasExistingSplit ? "Update split" : "Save split",
+    splitRows: transaction.splits?.length ? transaction.splits : [{ category: transaction.category || "Other", amount: Math.abs(transaction.amount) }],
+    transactionAmount: transaction.amount,
     validate: (value) => {
-      if (!value.trim()) {
-        return "";
-      }
-      return parseSplitInput(value, transaction.amount) ? "" : "The split format is invalid or the amounts do not add up.";
+      return validateSplitBuilderValue(value, transaction.amount);
     },
   });
 
@@ -1086,7 +1201,7 @@ async function editTransactionSplit(transaction) {
     return;
   }
 
-  if (!result.value.trim()) {
+  if (!result.value.length) {
     clearTransactionSplits(transaction);
     refreshDerivedState();
     saveData();
@@ -1095,8 +1210,7 @@ async function editTransactionSplit(transaction) {
     return;
   }
 
-  const parsed = parseSplitInput(result.value, transaction.amount);
-  transaction.splits = parsed;
+  transaction.splits = result.value;
   transaction.category = "Other";
   refreshDerivedState();
   saveData();
