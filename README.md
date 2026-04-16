@@ -25,6 +25,8 @@ Ledger Garden is a local-first expense tracker for importing bank and credit-car
 If you have Node.js available, run `node --test tests/*.test.mjs` from `/Users/ryansun/Documents/Expense Tracker`.
 These smoke tests cover the shared ledger core plus categorization, deduping, transfer matching, and monthly summaries in the extracted domain module.
 
+For this workspace, a local Node binary can also be unpacked into `.tools/` and run with `./.tools/node-v22.14.0-darwin-arm64/bin/node --test tests/*.test.mjs`.
+
 ## Deploying To Vercel
 
 This app can be hosted as a static site on Vercel with no build step.
