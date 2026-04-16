@@ -107,11 +107,13 @@
             </div>
             <div class="action-row import-actions">
               <button id="load-sample-button" class="primary-button import-primary-action" type="button">Try sample CSV</button>
-              <button id="export-button" class="ghost-button" type="button">Export filtered CSV</button>
-              <button id="save-ledger-button" class="ghost-button" type="button">Save ledger JSON</button>
-              <label class="ghost-button file-button" for="load-ledger-input">Load ledger JSON</label>
-              <input id="load-ledger-input" type="file" accept=".json,application/json" hidden />
-              <button id="clear-data-button" class="ghost-button subtle-danger-button" type="button">Clear all data</button>
+              <div class="import-secondary-actions">
+                <button id="export-button" class="ghost-button" type="button">Export filtered CSV</button>
+                <button id="save-ledger-button" class="ghost-button" type="button">Save ledger JSON</button>
+                <label class="ghost-button file-button" for="load-ledger-input">Load ledger JSON</label>
+                <input id="load-ledger-input" type="file" accept=".json,application/json" hidden />
+                <button id="clear-data-button" class="ghost-button subtle-danger-button" type="button">Clear all data</button>
+              </div>
             </div>
           </div>
 
@@ -347,7 +349,7 @@
               <h2>Transactions</h2>
               <p class="panel-intro">Search by merchant, note, institution, or account, then clean up categories and split purchases inline.</p>
             </div>
-            <div class="action-row">
+            <div class="action-row transactions-toolbar">
               <button id="rerun-categories-button" class="ghost-button" type="button">Re-run categories</button>
               <label class="search-field">
                 Search

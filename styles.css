@@ -259,6 +259,10 @@ select {
   overflow: hidden;
 }
 
+.hero-card-mobile-note {
+  display: none;
+}
+
 .hero-copy::after,
 .hero-card::after {
   content: "";
@@ -467,7 +471,7 @@ select {
   gap: 16px;
   align-items: end;
   margin-bottom: 20px;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid rgba(19, 32, 58, 0.06);
 }
 
@@ -480,7 +484,15 @@ select {
 }
 
 .import-actions {
-  max-width: 520px;
+  max-width: 620px;
+  align-items: center;
+}
+
+.import-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .panel h2,
@@ -494,7 +506,7 @@ select {
 .dropzone {
   display: grid;
   place-items: center;
-  padding: 44px 20px;
+  padding: 38px 20px;
   border: 1.5px dashed rgba(75, 107, 255, 0.26);
   border-radius: var(--radius-lg);
   background:
@@ -509,15 +521,15 @@ select {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 24px;
-  padding-top: 18px;
+  margin-top: 22px;
+  padding-top: 20px;
   border-top: 1px solid rgba(19, 32, 58, 0.08);
 }
 
 .workflow-step {
   display: grid;
   gap: 8px;
-  padding: 18px;
+  padding: 16px;
   border-radius: 20px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -652,11 +664,11 @@ textarea {
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  gap: 14px;
 }
 
 .metric-card {
-  padding: 24px 22px;
+  padding: 20px 20px 18px;
   border-radius: var(--radius-lg);
   background:
     radial-gradient(circle at top right, rgba(75, 107, 255, 0.06), transparent 28%),
@@ -684,13 +696,13 @@ textarea {
 .metric-card p {
   margin: 0 0 10px;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 
 .metric-card strong {
-  font-size: 2.1rem;
+  font-size: clamp(1.7rem, 3vw, 2rem);
   letter-spacing: -0.04em;
 }
 
@@ -718,7 +730,7 @@ textarea {
 .mini-card,
 .transfer-card,
 .summary-item {
-  padding: 18px;
+  padding: 16px;
   border-radius: 20px;
   background: rgba(235, 240, 247, 0.94);
   border: 1px solid var(--line);
@@ -901,9 +913,9 @@ textarea {
 
 .flag-cell {
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .flag-cell > div:first-child {
@@ -924,7 +936,7 @@ textarea {
 .note-preview {
   max-width: 240px;
   margin: 0 0 8px;
-  line-height: 1.45;
+  line-height: 1.4;
   white-space: normal;
 }
 
@@ -940,18 +952,18 @@ textarea {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 860px;
+  min-width: 820px;
 }
 
 th,
 td {
-  padding: 14px 16px;
+  padding: 12px 14px;
   text-align: left;
   border-bottom: 1px solid rgba(19, 32, 58, 0.07);
 }
 
 th {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--muted);
@@ -971,6 +983,8 @@ tbody tr:hover td {
 
 td {
   color: var(--muted-strong);
+  font-size: 0.94rem;
+  vertical-align: top;
 }
 
 tr:last-child td {
@@ -991,17 +1005,30 @@ tr:last-child td {
 }
 
 .category-select {
-  min-width: 150px;
+  min-width: 138px;
 }
 
 .empty-state {
   padding: 22px 0 4px;
 }
 
+.transactions-toolbar {
+  align-items: end;
+  gap: 14px;
+}
+
+.transactions-toolbar .search-field {
+  min-width: 320px;
+}
+
+.transactions-toolbar input[type="search"] {
+  background: rgba(245, 248, 252, 0.9);
+}
+
 .primary-button,
 .ghost-button {
-  min-height: 44px;
-  padding: 0 18px;
+  min-height: 42px;
+  padding: 0 16px;
   border-radius: 999px;
   border: 0;
   cursor: pointer;
@@ -1161,22 +1188,25 @@ tr:last-child td {
   }
 
   .topbar {
+    gap: 10px;
     align-items: start;
+    margin-bottom: 14px;
   }
 
   .hero-copy {
-    padding: 22px;
+    padding: 20px;
   }
 
   .hero h1 {
     max-width: 100%;
-    font-size: clamp(1.95rem, 8.8vw, 2.75rem);
-    line-height: 1;
+    font-size: clamp(1.82rem, 8.1vw, 2.42rem);
+    line-height: 0.98;
   }
 
   .hero-text {
-    font-size: 0.94rem;
-    line-height: 1.5;
+    margin-top: 12px;
+    font-size: 0.92rem;
+    line-height: 1.42;
   }
 
   .hero-stats,
@@ -1186,12 +1216,12 @@ tr:last-child td {
   }
 
   .hero-card {
-    padding: 18px;
+    display: none;
   }
 
   .hero-actions {
     gap: 8px;
-    margin-top: 18px;
+    margin-top: 14px;
   }
 
   .hero-button {
@@ -1199,17 +1229,25 @@ tr:last-child td {
     justify-content: center;
   }
 
+  .hero-highlights {
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .hero-pill {
+    min-height: 30px;
+    padding: 0 12px;
+    font-size: 0.76rem;
+  }
+
   .hero-proof {
     display: none;
   }
 
-  .hero-list li:nth-child(n + 3) {
-    display: none;
-  }
-
-  .hero-card-summary,
-  .hero-note {
-    font-size: 0.92rem;
+  .eyebrow {
+    margin-bottom: 10px;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
   }
 
   .panel-heading,
@@ -1220,16 +1258,17 @@ tr:last-child td {
 
   .page-shell {
     width: min(100%, calc(100% - 20px));
-    padding-top: 18px;
+    padding-top: 14px;
   }
 
   .topbar {
-    padding: 14px;
+    padding: 12px;
   }
 
   .topbar-nav {
     width: 100%;
     justify-content: space-between;
+    padding: 3px;
   }
 
   .topbar-pills {
@@ -1237,25 +1276,114 @@ tr:last-child td {
     justify-content: flex-start;
   }
 
+  .brand-lockup {
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    font-size: 0.84rem;
+  }
+
+  .brand-label {
+    font-size: 0.94rem;
+  }
+
+  .brand-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .topbar-link {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 0.78rem;
+  }
+
+  .topbar-pill {
+    min-height: 30px;
+    padding: 0 12px;
+    font-size: 0.76rem;
+  }
+
   .panel {
-    padding: 20px;
+    padding: 18px;
+  }
+
+  .panel-intro {
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  .dropzone {
+    padding: 28px 16px;
+  }
+
+  .dropzone-title {
+    font-size: 1rem;
+  }
+
+  .dropzone-text {
+    margin-top: 6px;
+    font-size: 0.92rem;
+  }
+
+  .workflow-strip {
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 16px;
+  }
+
+  .workflow-step {
+    gap: 6px;
+    padding: 14px;
+  }
+
+  .workflow-step p {
+    font-size: 0.9rem;
+    line-height: 1.42;
   }
 
   .import-actions {
     width: 100%;
     max-width: none;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     justify-content: stretch;
   }
 
-  .import-actions > :first-child {
-    grid-column: 1 / -1;
+  .import-secondary-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .import-actions .ghost-button,
   .import-actions .primary-button,
-  .import-actions .file-button {
+  .import-actions .file-button,
+  .import-secondary-actions > * {
+    width: 100%;
+  }
+
+  .metrics-grid {
+    gap: 10px;
+  }
+
+  .metric-card {
+    padding: 16px 16px 14px;
+  }
+
+  .metric-card p {
+    margin-bottom: 8px;
+  }
+
+  .metric-card strong {
+    font-size: 1.55rem;
+  }
+
+  .transactions-toolbar .search-field {
+    min-width: 100%;
     width: 100%;
   }
 
@@ -1275,6 +1403,60 @@ tr:last-child td {
   }
 
   .split-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    margin-bottom: 12px;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .topbar-nav {
+    gap: 4px;
+  }
+
+  .topbar-link {
+    font-size: 0.74rem;
+  }
+
+  .hero {
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .hero-copy {
+    padding: 18px 16px;
+  }
+
+  .hero-text {
+    max-width: 32ch;
+  }
+
+  .hero-highlights {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hero-pill {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .panel-heading {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+
+  .workflow-step:nth-child(3) {
+    display: none;
+  }
+
+  .import-secondary-actions {
     grid-template-columns: 1fr;
   }
 }
