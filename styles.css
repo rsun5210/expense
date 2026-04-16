@@ -28,6 +28,10 @@
   box-sizing: border-box;
 }
 
+.hidden {
+  display: none !important;
+}
+
 html {
   color-scheme: light;
 }
@@ -53,6 +57,33 @@ select {
   width: min(1240px, calc(100% - 32px));
   margin: 0 auto;
   padding: 24px 0 64px;
+}
+
+.toast-region {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 30;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100% - 24px));
+}
+
+.toast {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 17, 31, 0.94);
+  color: #fff;
+  box-shadow: 0 18px 36px rgba(8, 17, 31, 0.34);
+}
+
+.toast.error {
+  border-color: rgba(221, 92, 81, 0.35);
+}
+
+.toast.success {
+  border-color: rgba(23, 192, 135, 0.35);
 }
 
 .topbar {
@@ -431,6 +462,7 @@ select {
 input[type="text"],
 input[type="search"],
 input[type="number"],
+textarea,
 select {
   width: 100%;
   min-height: 46px;
@@ -446,10 +478,16 @@ select {
 input[type="text"]:focus,
 input[type="search"]:focus,
 input[type="number"]:focus,
+textarea:focus,
 select:focus {
   border-color: rgba(75, 107, 255, 0.4);
   box-shadow: 0 0 0 4px rgba(75, 107, 255, 0.12);
   background: #fff;
+}
+
+textarea {
+  min-height: 132px;
+  resize: vertical;
 }
 
 .metrics-grid {
@@ -800,6 +838,11 @@ tr:last-child td {
   box-shadow: 0 12px 22px rgba(75, 107, 255, 0.22);
 }
 
+.primary-button.danger {
+  background: linear-gradient(135deg, #dd5c51, #f2846b);
+  box-shadow: 0 12px 22px rgba(221, 92, 81, 0.22);
+}
+
 .ghost-button {
   color: var(--ink);
   background: var(--surface-soft);
@@ -825,6 +868,62 @@ tr:last-child td {
 
 .ghost-button:hover {
   box-shadow: 0 10px 20px rgba(8, 17, 31, 0.08);
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 17, 31, 0.46);
+  backdrop-filter: blur(12px);
+}
+
+.dialog-shell {
+  width: min(560px, 100%);
+  padding: 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.54);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 30px 60px rgba(8, 17, 31, 0.24);
+}
+
+.dialog-header h2,
+.dialog-description {
+  margin: 0;
+}
+
+.dialog-header h2 {
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+}
+
+.dialog-description {
+  margin-top: 10px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.dialog-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  color: var(--muted);
+}
+
+.dialog-error {
+  margin: 14px 0 0;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: end;
+  gap: 10px;
+  margin-top: 22px;
 }
 
 @media (max-width: 920px) {
@@ -872,5 +971,20 @@ tr:last-child td {
 
   .panel {
     padding: 20px;
+  }
+
+  .toast-region {
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+
+  .dialog-shell {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  .dialog-actions {
+    flex-direction: column-reverse;
   }
 }

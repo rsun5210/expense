@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   applyLearnedCategory,
   buildBudgetRows,
+  buildLedgerPayload,
   buildMonthlySeries,
   buildSpendingPlan,
   detectRecurringSeries,
@@ -11,6 +12,7 @@ import {
   inferCategory,
   matchTransfers,
   mergeTransactions,
+  parseLedgerPayload,
 } from "../ledger-domain.mjs";
 
 test("inferCategory prefers saved rules and merchant rules", () => {
@@ -264,4 +266,81 @@ test("buildSpendingPlan reports overspending when expenses exceed income", () =>
 
   assert.equal(plan[2].label, "Overspending");
   assert.equal(plan[2].amount, 400);
+});
+
+test("buildLedgerPayload keeps notes and sanitizes budget persistence data", () => {
+  const payload = buildLedgerPayload({
+    version: 2,
+    exportedAt: "2026-04-15T20:00:00.000Z",
+    transactions: [
+      {
+        id: "txn-1",
+        date: "2026-04-02",
+        description: "Trader Joe's",
+        merchant: "Trader Joe's",
+        merchantKey: "trader joe's",
+        institution: "Card",
+        amount: -42.18,
+        category: "Groceries",
+        note: "Meal prep week",
+      },
+    ],
+    budgets: {
+      "2026-04": {
+        Groceries: "300",
+        Dining: 0,
+        Shopping: "invalid",
+      },
+      "2026-05": [],
+    },
+  });
+
+  assert.equal(payload.version, 2);
+  assert.equal(payload.transactions[0].note, "Meal prep week");
+  assert.deepEqual(payload.budgets, {
+    "2026-04": {
+      Groceries: 300,
+    },
+  });
+});
+
+test("parseLedgerPayload normalizes imported transactions, notes, and budgets", () => {
+  const parsed = parseLedgerPayload({
+    transactions: [
+      {
+        id: "txn-2",
+        date: "2026-04-03",
+        description: "Split order",
+        rawMerchant: "Target Store",
+        institution: "Card",
+        amount: -30,
+        category: "Other",
+        note: "Cleaning supplies + snacks",
+        splits: [
+          { category: "Household", amount: -18 },
+          { category: "Groceries", amount: -12 },
+        ],
+      },
+    ],
+    budgets: {
+      "2026-04": {
+        Household: "120.50",
+        Groceries: 220,
+        Empty: "",
+      },
+    },
+  });
+
+  assert.equal(parsed.transactions[0].note, "Cleaning supplies + snacks");
+  assert.match(parsed.transactions[0].searchText, /cleaning supplies \+ snacks/);
+  assert.deepEqual(parsed.budgets, {
+    "2026-04": {
+      Household: 120.5,
+      Groceries: 220,
+    },
+  });
+});
+
+test("parseLedgerPayload rejects non-ledger payloads without transactions", () => {
+  assert.throws(() => parseLedgerPayload({ budgets: {} }), /missing transactions/i);
 });

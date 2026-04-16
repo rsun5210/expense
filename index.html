@@ -3,10 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ledger Garden</title>
+    <title>Ledger Garden | Private Expense Tracker</title>
+    <meta
+      name="description"
+      content="Track spending privately in your browser with CSV imports, budgets, recurring charge detection, and monthly planning views."
+    />
+    <meta name="theme-color" content="#08111f" />
+    <meta property="og:title" content="Ledger Garden" />
+    <meta
+      property="og:description"
+      content="A local-first expense tracker with CSV imports, budgets, notes, and a modern money dashboard."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
     <div class="page-shell">
       <div class="topbar">
         <div class="brand-lockup">
@@ -70,6 +84,7 @@
               <h2>Add a CSV statement</h2>
             </div>
             <div class="action-row">
+              <button id="load-sample-button" class="ghost-button" type="button">Try sample CSV</button>
               <button id="export-button" class="ghost-button" type="button">Export filtered CSV</button>
               <button id="save-ledger-button" class="ghost-button" type="button">Save ledger JSON</button>
               <label class="ghost-button file-button" for="load-ledger-input">Load ledger JSON</label>
@@ -212,6 +227,7 @@
                   <h2>Monthly budgets</h2>
                 </div>
                 <div class="budget-actions">
+                  <button id="copy-budgets-button" class="ghost-button" type="button">Copy previous month</button>
                   <button id="save-budgets-button" class="primary-button" type="button">Save month budgets</button>
                   <button id="clear-budgets-button" class="ghost-button" type="button">Clear month budgets</button>
                 </div>
@@ -329,6 +345,34 @@
         <strong class="summary-amount"></strong>
       </article>
     </template>
+
+    <div id="dialog-backdrop" class="dialog-backdrop hidden" role="presentation">
+      <div
+        class="dialog-shell"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dialog-title"
+        aria-describedby="dialog-description"
+      >
+        <div class="dialog-header">
+          <p id="dialog-eyebrow" class="section-label">Ledger Garden</p>
+          <h2 id="dialog-title">Dialog</h2>
+          <p id="dialog-description" class="dialog-description"></p>
+        </div>
+
+        <label id="dialog-field" class="dialog-field hidden">
+          <span id="dialog-field-label">Details</span>
+          <textarea id="dialog-input" rows="4"></textarea>
+        </label>
+
+        <p id="dialog-error" class="dialog-error hidden"></p>
+
+        <div class="dialog-actions">
+          <button id="dialog-cancel-button" class="ghost-button" type="button">Cancel</button>
+          <button id="dialog-confirm-button" class="primary-button" type="button">Save</button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="./app.js"></script>
   </body>

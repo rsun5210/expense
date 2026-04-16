@@ -14,6 +14,7 @@ import {
   applyLearnedCategory as applyLearnedCategoryByMerchant,
   buildAccountStats,
   buildBudgetRows as buildBudgetRowsFromTransactions,
+  buildLedgerPayload,
   buildMonthlySeries,
   buildSearchText,
   buildSpendingPlan as buildSpendingPlanCards,
@@ -26,6 +27,7 @@ import {
   inferCategory,
   matchTransfers,
   mergeTransactions as mergeImportedTransactions,
+  parseLedgerPayload,
   recategorizeSplits,
 } from "./ledger-domain.mjs";
 import {
@@ -70,6 +72,9 @@ const state = {
   rules: [],
   budgets: {},
   searchTimer: null,
+  toastTimer: null,
+  dialogResolver: null,
+  dialogOptions: null,
 };
 
 const defaultCategories = [
@@ -102,6 +107,7 @@ const elements = {
   exportButton: document.querySelector("#export-button"),
   saveLedgerButton: document.querySelector("#save-ledger-button"),
   loadLedgerInput: document.querySelector("#load-ledger-input"),
+  loadSampleButton: document.querySelector("#load-sample-button"),
   clearDataButton: document.querySelector("#clear-data-button"),
   mappingPanel: document.querySelector("#mapping-panel"),
   dateColumn: document.querySelector("#date-column"),
@@ -128,6 +134,7 @@ const elements = {
   metricMonth: document.querySelector("#metric-month"),
   saveBudgetsButton: document.querySelector("#save-budgets-button"),
   clearBudgetsButton: document.querySelector("#clear-budgets-button"),
+  copyBudgetsButton: document.querySelector("#copy-budgets-button"),
   budgetCaption: document.querySelector("#budget-caption"),
   budgetEmpty: document.querySelector("#budget-empty"),
   budgetList: document.querySelector("#budget-list"),
@@ -148,6 +155,17 @@ const elements = {
   rulesEmpty: document.querySelector("#rules-empty"),
   rulesList: document.querySelector("#rules-list"),
   summaryItemTemplate: document.querySelector("#summary-item-template"),
+  toastRegion: document.querySelector("#toast-region"),
+  dialogBackdrop: document.querySelector("#dialog-backdrop"),
+  dialogEyebrow: document.querySelector("#dialog-eyebrow"),
+  dialogTitle: document.querySelector("#dialog-title"),
+  dialogDescription: document.querySelector("#dialog-description"),
+  dialogField: document.querySelector("#dialog-field"),
+  dialogFieldLabel: document.querySelector("#dialog-field-label"),
+  dialogInput: document.querySelector("#dialog-input"),
+  dialogError: document.querySelector("#dialog-error"),
+  dialogCancelButton: document.querySelector("#dialog-cancel-button"),
+  dialogConfirmButton: document.querySelector("#dialog-confirm-button"),
 };
 
 initialize();
@@ -159,18 +177,119 @@ function initialize() {
   render();
 }
 
+function showToast(message, tone = "info") {
+  window.clearTimeout(state.toastTimer);
+  elements.toastRegion.innerHTML = "";
+
+  const toast = document.createElement("div");
+  toast.className = `toast ${tone}`;
+  toast.textContent = message;
+  elements.toastRegion.appendChild(toast);
+
+  state.toastTimer = window.setTimeout(() => {
+    toast.remove();
+  }, 3200);
+}
+
+function openDialog({
+  title,
+  description = "",
+  confirmLabel = "Save",
+  cancelLabel = "Cancel",
+  value = "",
+  fieldLabel = "Details",
+  placeholder = "",
+  rows = 4,
+  mode = "text",
+  tone = "primary",
+  validate = null,
+} = {}) {
+  if (state.dialogResolver) {
+    closeDialog({ confirmed: false });
+  }
+
+  state.dialogOptions = { mode, validate };
+  elements.dialogEyebrow.textContent = mode === "confirm" ? "Confirm action" : "Update details";
+  elements.dialogTitle.textContent = title;
+  elements.dialogDescription.textContent = description;
+  elements.dialogCancelButton.textContent = cancelLabel;
+  elements.dialogConfirmButton.textContent = confirmLabel;
+  elements.dialogConfirmButton.classList.toggle("danger", tone === "danger");
+  elements.dialogFieldLabel.textContent = fieldLabel;
+  elements.dialogInput.value = value;
+  elements.dialogInput.placeholder = placeholder;
+  elements.dialogInput.rows = rows;
+  elements.dialogError.textContent = "";
+  elements.dialogError.classList.add("hidden");
+  elements.dialogField.classList.toggle("hidden", mode === "confirm");
+  elements.dialogBackdrop.classList.remove("hidden");
+
+  window.setTimeout(() => {
+    if (mode !== "confirm") {
+      elements.dialogInput.focus();
+      elements.dialogInput.setSelectionRange(elements.dialogInput.value.length, elements.dialogInput.value.length);
+    } else {
+      elements.dialogConfirmButton.focus();
+    }
+  }, 0);
+
+  return new Promise((resolve) => {
+    state.dialogResolver = resolve;
+  });
+}
+
+function closeDialog(result) {
+  if (!state.dialogResolver) {
+    return;
+  }
+
+  const resolve = state.dialogResolver;
+  state.dialogResolver = null;
+  state.dialogOptions = null;
+  elements.dialogBackdrop.classList.add("hidden");
+  resolve(result);
+}
+
+function submitDialog() {
+  if (!state.dialogResolver) {
+    return;
+  }
+
+  const options = state.dialogOptions || {};
+  const value = options.mode === "confirm" ? "" : elements.dialogInput.value;
+  const error = typeof options.validate === "function" ? options.validate(value) : "";
+  if (error) {
+    elements.dialogError.textContent = error;
+    elements.dialogError.classList.remove("hidden");
+    return;
+  }
+
+  closeDialog({ confirmed: true, value });
+}
+
+function promptForText(options) {
+  return openDialog({ ...options, mode: "text" });
+}
+
+function promptForConfirmation(options) {
+  return openDialog({ ...options, mode: "confirm" });
+}
+
 function bindEvents() {
   elements.fileInput.addEventListener("change", handleFileSelection);
   elements.importButton.addEventListener("click", importParsedTransactions);
   elements.exportButton.addEventListener("click", exportFilteredTransactions);
   elements.saveLedgerButton.addEventListener("click", saveLedgerFile);
   elements.loadLedgerInput.addEventListener("change", loadLedgerFile);
+  elements.loadSampleButton.addEventListener("click", importSampleStatement);
   elements.clearDataButton.addEventListener("click", clearAllData);
   elements.rerunCategoriesButton.addEventListener("click", rerunCategories);
   elements.addRuleButton.addEventListener("click", addRuleFromInputs);
   elements.saveBudgetsButton.addEventListener("click", saveBudgetsFromInputs);
   elements.clearBudgetsButton.addEventListener("click", clearBudgetsForActiveMonth);
+  elements.copyBudgetsButton.addEventListener("click", copyBudgetsFromPreviousMonth);
   bindDropzoneEvents();
+  bindDialogEvents();
   populateRuleCategorySelect();
 
   elements.monthFilter.addEventListener("change", (event) => {
@@ -184,6 +303,26 @@ function bindEvents() {
       state.searchQuery = event.target.value.trim().toLowerCase();
       render();
     }, SEARCH_DEBOUNCE_MS);
+  });
+}
+
+function bindDialogEvents() {
+  elements.dialogCancelButton.addEventListener("click", () => closeDialog({ confirmed: false }));
+  elements.dialogConfirmButton.addEventListener("click", submitDialog);
+  elements.dialogInput.addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      submitDialog();
+    }
+  });
+  elements.dialogBackdrop.addEventListener("click", (event) => {
+    if (event.target === elements.dialogBackdrop) {
+      closeDialog({ confirmed: false });
+    }
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.dialogResolver) {
+      closeDialog({ confirmed: false });
+    }
   });
 }
 
@@ -225,7 +364,7 @@ function loadStatementFile(file) {
   reader.onload = () => {
     const parsedImport = parseCsv(String(reader.result || ""));
     if (!parsedImport.headers.length || !parsedImport.rows.length) {
-      window.alert("This file does not look like a usable CSV statement.");
+      showToast("This file does not look like a usable CSV statement.", "error");
       return;
     }
 
@@ -236,24 +375,39 @@ function loadStatementFile(file) {
 }
 
 function buildMappingUi(parsedImport) {
+  const suggestedMapping = buildSuggestedMapping(parsedImport);
   const columnOptions = ["", ...parsedImport.headers];
-  const preset = getImportPreset(parsedImport.headers);
-  const guessedAmountColumn = preset?.amount || guessColumn(parsedImport.headers, /^amount$|total amount|transaction amount/i);
-  const guessedAmountMode = preset?.amountMode || detectAmountMode(parsedImport.rows, guessedAmountColumn);
-
-  populateSelect(elements.dateColumn, columnOptions, preset?.date || guessColumn(parsedImport.headers, /date|posted|transaction date/i));
-  populateSelect(elements.descriptionColumn, columnOptions, preset?.description || guessColumn(parsedImport.headers, /description|details|name/i));
-  populateSelect(elements.merchantColumn, columnOptions, preset?.merchant || guessColumn(parsedImport.headers, /raw merchant|merchant/i));
-  populateSelect(elements.amountColumn, columnOptions, guessedAmountColumn);
-  populateSelect(elements.typeColumn, columnOptions, preset?.type || guessColumn(parsedImport.headers, /type|credit.?debit|debit.?credit|dr.?cr|cr.?dr/i));
-  populateSelect(elements.debitColumn, columnOptions, preset?.debit || guessColumn(parsedImport.headers, /debit|withdrawal|outflow|charge/i));
-  populateSelect(elements.creditColumn, columnOptions, preset?.credit || guessColumn(parsedImport.headers, /credit|deposit|inflow|payment/i));
-  populateSelect(elements.accountColumn, columnOptions, preset?.account || guessColumn(parsedImport.headers, /card last|account|last 4|card/i));
-  elements.amountMode.value = guessedAmountMode;
-  elements.institutionInput.value = preset?.institution || "";
-  renderMappingStatus(parsedImport.headers, preset, guessedAmountMode);
+  populateSelect(elements.dateColumn, columnOptions, suggestedMapping.date);
+  populateSelect(elements.descriptionColumn, columnOptions, suggestedMapping.description);
+  populateSelect(elements.merchantColumn, columnOptions, suggestedMapping.merchant);
+  populateSelect(elements.amountColumn, columnOptions, suggestedMapping.amount);
+  populateSelect(elements.typeColumn, columnOptions, suggestedMapping.type);
+  populateSelect(elements.debitColumn, columnOptions, suggestedMapping.debit);
+  populateSelect(elements.creditColumn, columnOptions, suggestedMapping.credit);
+  populateSelect(elements.accountColumn, columnOptions, suggestedMapping.account);
+  elements.amountMode.value = suggestedMapping.amountMode;
+  elements.institutionInput.value = suggestedMapping.institution;
+  renderMappingStatus(parsedImport.headers, getImportPreset(parsedImport.headers), suggestedMapping.amountMode);
   renderPreviewTable(parsedImport);
   elements.mappingPanel.classList.remove("hidden");
+}
+
+function buildSuggestedMapping(parsedImport) {
+  const preset = getImportPreset(parsedImport.headers);
+  const guessedAmountColumn = preset?.amount || guessColumn(parsedImport.headers, /^amount$|total amount|transaction amount/i);
+
+  return {
+    date: preset?.date || guessColumn(parsedImport.headers, /date|posted|transaction date/i),
+    description: preset?.description || guessColumn(parsedImport.headers, /description|details|name/i),
+    merchant: preset?.merchant || guessColumn(parsedImport.headers, /raw merchant|merchant/i),
+    amount: guessedAmountColumn,
+    amountMode: preset?.amountMode || detectAmountMode(parsedImport.rows, guessedAmountColumn),
+    type: preset?.type || guessColumn(parsedImport.headers, /type|credit.?debit|debit.?credit|dr.?cr|cr.?dr/i),
+    debit: preset?.debit || guessColumn(parsedImport.headers, /debit|withdrawal|outflow|charge/i),
+    credit: preset?.credit || guessColumn(parsedImport.headers, /credit|deposit|inflow|payment/i),
+    account: preset?.account || guessColumn(parsedImport.headers, /card last|account|last 4|card/i),
+    institution: preset?.institution || "",
+  };
 }
 
 function populateSelect(selectElement, options, selectedValue = "") {
@@ -310,12 +464,8 @@ function buildPreviewCell(text) {
   return cell;
 }
 
-function importParsedTransactions() {
-  if (!state.parsedImport) {
-    return;
-  }
-
-  const mapping = {
+function collectMappingInputs() {
+  return {
     date: elements.dateColumn.value,
     description: elements.descriptionColumn.value,
     merchant: elements.merchantColumn.value,
@@ -327,27 +477,66 @@ function importParsedTransactions() {
     account: elements.accountColumn.value,
     institution: elements.institutionInput.value.trim() || "Imported Statement",
   };
+}
 
-  if (!mapping.date || !mapping.description || (!mapping.amount && !mapping.debit && !mapping.credit)) {
-    window.alert("Pick at least date, description, and amount information before importing.");
-    return;
+function importParsedTransactions(options = {}) {
+  const parsedImport = options.parsedImport || state.parsedImport;
+  if (!parsedImport) {
+    return false;
   }
 
-  const imported = state.parsedImport.rows.map((row) => createTransactionFromRow(row, mapping)).filter(Boolean);
+  const mapping = options.mapping || collectMappingInputs();
+  if (!mapping.date || !mapping.description || (!mapping.amount && !mapping.debit && !mapping.credit)) {
+    showToast("Pick at least date, description, and amount information before importing.", "error");
+    return false;
+  }
+
+  const imported = parsedImport.rows.map((row) => createTransactionFromRow(row, mapping)).filter(Boolean);
   if (!imported.length) {
-    window.alert("No transactions could be created from this statement.");
-    return;
+    showToast("No transactions could be created from this statement.", "error");
+    return false;
   }
 
   const added = mergeTransactions(imported);
-  saveImportPreset(state.parsedImport.headers, mapping);
+  saveImportPreset(parsedImport.headers, mapping);
   refreshDerivedState();
   saveData();
   render();
 
   elements.mappingPanel.classList.add("hidden");
   elements.fileInput.value = "";
-  window.alert(`Imported ${added} new transaction${added === 1 ? "" : "s"}.`);
+  if (!options.keepParsedImport) {
+    state.parsedImport = null;
+  }
+  showToast(`Imported ${added} new transaction${added === 1 ? "" : "s"}.`, "success");
+  return true;
+}
+
+async function importSampleStatement() {
+  try {
+    const response = await window.fetch("./sample-data/sample_statement.csv");
+    if (!response.ok) {
+      throw new Error(`Sample file request failed with ${response.status}.`);
+    }
+
+    const parsedImport = parseCsv(await response.text());
+    if (!parsedImport.headers.length || !parsedImport.rows.length) {
+      throw new Error("Sample file did not contain usable rows.");
+    }
+
+    state.parsedImport = parsedImport;
+    buildMappingUi(parsedImport);
+    importParsedTransactions({
+      parsedImport,
+      mapping: {
+        ...buildSuggestedMapping(parsedImport),
+        institution: "Ledger Garden Sample",
+      },
+    });
+  } catch (error) {
+    console.error("Unable to import sample statement.", error);
+    showToast("The sample CSV could not be loaded right now.", "error");
+  }
 }
 
 function createTransactionFromRow(row, mapping) {
@@ -391,8 +580,14 @@ function mergeTransactions(importedTransactions) {
   return result.added;
 }
 
-function clearAllData() {
-  if (!window.confirm("Clear every imported transaction and reset the tracker?")) {
+async function clearAllData() {
+  const result = await promptForConfirmation({
+    title: "Clear all imported data?",
+    description: "This removes transactions, saved budgets, rules, presets, and local browser storage for Ledger Garden on this device.",
+    confirmLabel: "Clear everything",
+    tone: "danger",
+  });
+  if (!result.confirmed) {
     return;
   }
   state.transactions = [];
@@ -412,6 +607,7 @@ function clearAllData() {
   window.localStorage.removeItem(RULES_KEY);
   window.localStorage.removeItem(BUDGETS_KEY);
   render();
+  showToast("Ledger Garden has been reset on this browser.", "success");
 }
 
 function loadSavedData() {
@@ -528,14 +724,23 @@ function render() {
   renderRules({
     elements,
     rules: state.rules,
-    onRemoveRule: (rule) => {
+    onRemoveRule: async (rule) => {
+      const result = await promptForConfirmation({
+        title: "Remove automation rule?",
+        description: `This will stop auto-categorizing merchants that match "${rule.pattern}".`,
+        confirmLabel: "Remove rule",
+      });
+      if (!result.confirmed) {
+        return;
+      }
       state.rules = state.rules.filter((current) => current.id !== rule.id);
       if (state.transactions.length) {
-        rerunCategories();
+        rerunCategories({ silent: true });
       } else {
         saveData();
         render();
       }
+      showToast("Rule removed.", "success");
     },
   });
   renderRecurring({
@@ -638,9 +843,11 @@ function buildHeaderSignature(headers) {
   return headers.map((header) => header.trim().toLowerCase()).join("|");
 }
 
-function rerunCategories() {
+function rerunCategories({ silent = false } = {}) {
   if (!state.transactions.length) {
-    window.alert("There are no transactions to recategorize yet.");
+    if (!silent) {
+      showToast("There are no transactions to recategorize yet.", "error");
+    }
     return;
   }
   state.transactions = state.transactions.map((transaction) =>
@@ -653,7 +860,9 @@ function rerunCategories() {
   refreshDerivedState();
   saveData();
   render();
-  window.alert("Re-ran category rules across all transactions.");
+  if (!silent) {
+    showToast("Re-ran category rules across all transactions.", "success");
+  }
 }
 
 function guessColumn(headers, pattern) {
@@ -663,7 +872,7 @@ function guessColumn(headers, pattern) {
 function exportFilteredTransactions() {
   const visibleTransactions = getFilteredTransactions({ search: true });
   if (!visibleTransactions.length) {
-    window.alert("There are no filtered transactions to export.");
+    showToast("There are no filtered transactions to export.", "error");
     return;
   }
 
@@ -689,7 +898,7 @@ function exportFilteredTransactions() {
 }
 
 function saveLedgerFile() {
-  const payload = {
+  const payload = buildLedgerPayload({
     exportedAt: new Date().toISOString(),
     version: LEDGER_VERSION,
     transactions: state.transactions,
@@ -697,8 +906,9 @@ function saveLedgerFile() {
     merchantRules: state.merchantRules,
     rules: state.rules,
     budgets: state.budgets,
-  };
+  });
   downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" }), `ledger-garden-ledger-${new Date().toISOString().slice(0, 10)}.json`);
+  showToast("Ledger JSON downloaded.", "success");
 }
 
 function loadLedgerFile(event) {
@@ -709,12 +919,12 @@ function loadLedgerFile(event) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const payload = JSON.parse(String(reader.result || "{}"));
-      state.transactions = Array.isArray(payload.transactions) ? payload.transactions.map(hydrateTransaction) : [];
-      state.importPresets = isPlainObject(payload.importPresets) ? payload.importPresets : {};
-      state.merchantRules = isPlainObject(payload.merchantRules) ? payload.merchantRules : {};
-      state.rules = Array.isArray(payload.rules) ? payload.rules : [];
-      state.budgets = isPlainObject(payload.budgets) ? payload.budgets : {};
+      const payload = parseLedgerPayload(JSON.parse(String(reader.result || "{}")));
+      state.transactions = payload.transactions;
+      state.importPresets = payload.importPresets;
+      state.merchantRules = payload.merchantRules;
+      state.rules = payload.rules;
+      state.budgets = payload.budgets;
       state.monthFilter = "all";
       state.searchQuery = "";
       state.parsedImport = null;
@@ -722,10 +932,10 @@ function loadLedgerFile(event) {
       refreshDerivedState();
       saveData();
       render();
-      window.alert("Ledger file loaded successfully.");
+      showToast("Ledger file loaded successfully.", "success");
     } catch (error) {
       console.error("Unable to load ledger file.", error);
-      window.alert("That file does not look like a valid Ledger Garden ledger.");
+      showToast("That file does not look like a valid Ledger Garden ledger.", "error");
     } finally {
       elements.loadLedgerInput.value = "";
     }
@@ -747,7 +957,7 @@ function addRuleFromInputs() {
   const pattern = cleanText(elements.rulePatternInput.value).toLowerCase();
   const category = elements.ruleCategorySelect.value;
   if (!pattern || !category) {
-    window.alert("Add a merchant pattern and category first.");
+    showToast("Add a merchant pattern and category first.", "error");
     return;
   }
 
@@ -758,11 +968,12 @@ function addRuleFromInputs() {
   });
   elements.rulePatternInput.value = "";
   if (state.transactions.length) {
-    rerunCategories();
+    rerunCategories({ silent: true });
   } else {
     saveData();
     render();
   }
+  showToast(`Added a rule for "${pattern}".`, "success");
 }
 
 function saveBudgetsFromInputs() {
@@ -778,67 +989,119 @@ function saveBudgetsFromInputs() {
   });
 
   if (!Object.keys(nextBudgets).length) {
-    window.alert("Add at least one positive budget amount for this month.");
+    showToast("Add at least one positive budget amount for this month.", "error");
     return;
   }
 
   state.budgets[budgetMonth] = nextBudgets;
   saveData();
   render();
-  window.alert(`Saved budgets for ${formatMonth(budgetMonth, monthFormatter)}.`);
+  showToast(`Saved budgets for ${formatMonth(budgetMonth, monthFormatter)}.`, "success");
 }
 
-function clearBudgetsForActiveMonth() {
+function copyBudgetsFromPreviousMonth() {
   const budgetMonth = getBudgetMonth();
+  const previousMonth = Object.keys(state.budgets)
+    .filter((month) => month < budgetMonth && Object.keys(getBudgetsForMonth(month)).length)
+    .sort()
+    .pop();
+
+  if (!previousMonth) {
+    showToast("There is no earlier saved budget month to copy from yet.", "error");
+    return;
+  }
+
+  state.budgets[budgetMonth] = { ...getBudgetsForMonth(previousMonth) };
+  saveData();
+  render();
+  showToast(
+    `Copied budgets from ${formatMonth(previousMonth, monthFormatter)} into ${formatMonth(budgetMonth, monthFormatter)}.`,
+    "success",
+  );
+}
+
+async function clearBudgetsForActiveMonth() {
+  const budgetMonth = getBudgetMonth();
+  if (!Object.keys(getBudgetsForMonth(budgetMonth)).length) {
+    showToast(`There are no saved budgets for ${formatMonth(budgetMonth, monthFormatter)} yet.`, "error");
+    return;
+  }
+
+  const result = await promptForConfirmation({
+    title: `Clear budgets for ${formatMonth(budgetMonth, monthFormatter)}?`,
+    description: "This only removes the saved targets for the selected month.",
+    confirmLabel: "Clear budgets",
+  });
+  if (!result.confirmed) {
+    return;
+  }
+
   delete state.budgets[budgetMonth];
   saveData();
   render();
+  showToast(`Cleared budgets for ${formatMonth(budgetMonth, monthFormatter)}.`, "success");
 }
 
-function editTransactionNote(transaction) {
-  const response = window.prompt("Add a private note for this transaction.", transaction.note || "");
-  if (response === null) {
+async function editTransactionNote(transaction) {
+  const result = await promptForText({
+    title: "Private transaction note",
+    description: "Notes stay in this browser and are searchable in your ledger.",
+    confirmLabel: "Save note",
+    fieldLabel: "Note",
+    value: transaction.note || "",
+    placeholder: "Add context for this transaction",
+  });
+  if (!result.confirmed) {
     return;
   }
 
-  transaction.note = cleanText(response);
+  transaction.note = cleanText(result.value);
   refreshDerivedState();
   saveData();
   render();
+  showToast(transaction.note ? "Note saved." : "Note cleared.", "success");
 }
 
-function editTransactionSplit(transaction) {
+async function editTransactionSplit(transaction) {
   const currentValue = transaction.splits?.length
     ? transaction.splits.map((split) => `${split.category}:${Math.abs(split.amount).toFixed(2)}`).join(", ")
     : "";
-  const response = window.prompt(
-    "Enter splits like Groceries:52.10, Household:21.30. Use positive amounts. Leave empty to clear splits.",
-    currentValue,
-  );
+  const result = await promptForText({
+    title: "Split this transaction",
+    description: "Use entries like Groceries:52.10, Household:21.30. Leave the field empty to clear the split.",
+    confirmLabel: currentValue ? "Update split" : "Save split",
+    fieldLabel: "Split amounts",
+    value: currentValue,
+    placeholder: "Groceries:52.10, Household:21.30",
+    rows: 3,
+    validate: (value) => {
+      if (!value.trim()) {
+        return "";
+      }
+      return parseSplitInput(value, transaction.amount) ? "" : "The split format is invalid or the amounts do not add up.";
+    },
+  });
 
-  if (response === null) {
+  if (!result.confirmed) {
     return;
   }
 
-  if (!response.trim()) {
+  if (!result.value.trim()) {
     clearTransactionSplits(transaction);
     refreshDerivedState();
     saveData();
     render();
+    showToast("Split cleared.", "success");
     return;
   }
 
-  const parsed = parseSplitInput(response, transaction.amount);
-  if (!parsed) {
-    window.alert("The split format is invalid or the amounts do not add up.");
-    return;
-  }
-
+  const parsed = parseSplitInput(result.value, transaction.amount);
   transaction.splits = parsed;
   transaction.category = "Other";
   refreshDerivedState();
   saveData();
   render();
+  showToast("Split saved.", "success");
 }
 
 function downloadBlob(blob, filename) {

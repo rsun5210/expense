@@ -89,6 +89,71 @@ export function hydrateTransaction(transaction) {
   return hydrated;
 }
 
+export function sanitizeLedgerBudgets(budgets) {
+  if (!budgets || typeof budgets !== "object" || Array.isArray(budgets)) {
+    return {};
+  }
+
+  const nextBudgets = {};
+  Object.entries(budgets).forEach(([month, categoryBudgets]) => {
+    if (!categoryBudgets || typeof categoryBudgets !== "object" || Array.isArray(categoryBudgets)) {
+      return;
+    }
+
+    const cleanedEntries = Object.entries(categoryBudgets).flatMap(([category, amount]) => {
+      const numericAmount = Number.parseFloat(String(amount));
+      if (!category || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+        return [];
+      }
+      return [[category, Number(numericAmount.toFixed(2))]];
+    });
+
+    if (cleanedEntries.length) {
+      nextBudgets[month] = Object.fromEntries(cleanedEntries);
+    }
+  });
+
+  return nextBudgets;
+}
+
+export function buildLedgerPayload({
+  transactions = [],
+  importPresets = {},
+  merchantRules = {},
+  rules = [],
+  budgets = {},
+  exportedAt = new Date().toISOString(),
+  version = 1,
+}) {
+  return {
+    exportedAt,
+    version,
+    transactions: transactions.map(hydrateTransaction),
+    importPresets: importPresets && typeof importPresets === "object" && !Array.isArray(importPresets) ? importPresets : {},
+    merchantRules: merchantRules && typeof merchantRules === "object" && !Array.isArray(merchantRules) ? merchantRules : {},
+    rules: Array.isArray(rules) ? rules : [],
+    budgets: sanitizeLedgerBudgets(budgets),
+  };
+}
+
+export function parseLedgerPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Ledger payload must be an object.");
+  }
+
+  if (!Array.isArray(payload.transactions)) {
+    throw new Error("Ledger payload is missing transactions.");
+  }
+
+  return {
+    transactions: payload.transactions.map(hydrateTransaction),
+    importPresets: payload.importPresets && typeof payload.importPresets === "object" && !Array.isArray(payload.importPresets) ? payload.importPresets : {},
+    merchantRules: payload.merchantRules && typeof payload.merchantRules === "object" && !Array.isArray(payload.merchantRules) ? payload.merchantRules : {},
+    rules: Array.isArray(payload.rules) ? payload.rules : [],
+    budgets: sanitizeLedgerBudgets(payload.budgets),
+  };
+}
+
 export function buildSearchText(transaction) {
   return [
     transaction.description,
