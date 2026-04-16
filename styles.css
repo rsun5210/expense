@@ -485,7 +485,10 @@ select {
 
 .import-actions {
   max-width: 620px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 8px;
 }
 
 .import-secondary-actions {
@@ -1045,7 +1048,8 @@ tr:last-child td {
 }
 
 .import-primary-action {
-  min-width: 148px;
+  min-width: 164px;
+  align-self: flex-end;
 }
 
 .primary-button.danger {
@@ -1178,8 +1182,6 @@ tr:last-child td {
 
 @media (max-width: 920px) {
   .topbar,
-  .hero,
-  .metrics-grid,
   .mapping-grid,
   .insight-grid {
     grid-template-columns: 1fr;
@@ -1191,63 +1193,6 @@ tr:last-child td {
     gap: 10px;
     align-items: start;
     margin-bottom: 14px;
-  }
-
-  .hero-copy {
-    padding: 20px;
-  }
-
-  .hero h1 {
-    max-width: 100%;
-    font-size: clamp(1.82rem, 8.1vw, 2.42rem);
-    line-height: 0.98;
-  }
-
-  .hero-text {
-    margin-top: 12px;
-    font-size: 0.92rem;
-    line-height: 1.42;
-  }
-
-  .hero-stats,
-  .workflow-strip,
-  .rule-builder {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-card {
-    display: none;
-  }
-
-  .hero-actions {
-    gap: 8px;
-    margin-top: 14px;
-  }
-
-  .hero-button {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .hero-highlights {
-    gap: 8px;
-    margin-top: 14px;
-  }
-
-  .hero-pill {
-    min-height: 30px;
-    padding: 0 12px;
-    font-size: 0.76rem;
-  }
-
-  .hero-proof {
-    display: none;
-  }
-
-  .eyebrow {
-    margin-bottom: 10px;
-    font-size: 0.68rem;
-    letter-spacing: 0.15em;
   }
 
   .panel-heading,
@@ -1305,6 +1250,87 @@ tr:last-child td {
     min-height: 30px;
     padding: 0 12px;
     font-size: 0.76rem;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 1.08fr) minmax(260px, 0.92fr);
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+
+  .hero-copy {
+    padding: 26px;
+  }
+
+  .hero h1 {
+    max-width: 11ch;
+    font-size: clamp(2rem, 5.4vw, 3rem);
+    line-height: 0.98;
+  }
+
+  .hero-text {
+    max-width: 44ch;
+    margin-top: 14px;
+    font-size: 0.94rem;
+    line-height: 1.46;
+  }
+
+  .hero-highlights {
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .hero-pill {
+    min-height: 30px;
+    padding: 0 12px;
+    font-size: 0.76rem;
+  }
+
+  .hero-actions {
+    margin-top: 16px;
+  }
+
+  .hero-card {
+    display: block;
+    padding: 20px;
+  }
+
+  .hero-stats {
+    gap: 10px;
+  }
+
+  .hero-stat {
+    padding: 14px;
+  }
+
+  .hero-stat strong {
+    font-size: 1.45rem;
+  }
+
+  .hero-list li:nth-child(n + 4) {
+    display: none;
+  }
+
+  .hero-note {
+    margin-top: 10px;
+    font-size: 0.9rem;
+  }
+
+  .hero-proof {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .workflow-strip,
+  .rule-builder {
+    grid-template-columns: 1fr;
   }
 
   .panel {
@@ -1407,7 +1433,7 @@ tr:last-child td {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   .topbar {
     margin-bottom: 12px;
   }
@@ -1425,6 +1451,7 @@ tr:last-child td {
   }
 
   .hero {
+    grid-template-columns: 1fr;
     gap: 14px;
     margin-bottom: 18px;
   }
@@ -1433,18 +1460,56 @@ tr:last-child td {
     padding: 18px 16px;
   }
 
+  .hero-card {
+    display: none;
+  }
+
+  .hero h1 {
+    max-width: 100%;
+    font-size: clamp(1.82rem, 8.1vw, 2.42rem);
+    line-height: 0.98;
+  }
+
   .hero-text {
     max-width: 32ch;
+    margin-top: 12px;
+    font-size: 0.92rem;
+    line-height: 1.42;
   }
 
   .hero-highlights {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .hero-highlights .hero-pill:nth-child(n + 3) {
+    display: none;
   }
 
   .hero-pill {
     justify-content: center;
+  }
+
+  .hero-actions {
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .hero-button {
     width: 100%;
+    justify-content: center;
+  }
+
+  .hero-proof {
+    display: none;
+  }
+
+  .eyebrow {
+    margin-bottom: 10px;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
   }
 
   .panel-heading {
@@ -1457,6 +1522,15 @@ tr:last-child td {
   }
 
   .import-secondary-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .import-secondary-actions > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .metrics-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
