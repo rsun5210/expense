@@ -158,6 +158,7 @@ select {
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .topbar-nav {
@@ -167,6 +168,8 @@ select {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  flex: 1;
+  justify-content: center;
 }
 
 .topbar-pill,
@@ -186,6 +189,7 @@ select {
   color: rgba(255, 255, 255, 0.92);
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
 }
 
 .topbar-pill-status {
@@ -332,7 +336,12 @@ select {
 }
 
 .hero-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
+  text-align: center;
+  line-height: 1;
 }
 
 .hero-proof {
@@ -379,6 +388,12 @@ select {
   color: var(--ink);
 }
 
+.hero-card-summary {
+  margin: 0 0 14px;
+  color: var(--muted);
+  line-height: 1.58;
+}
+
 .hero-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -404,40 +419,6 @@ select {
 .hero-note,
 .hero-list li {
   color: var(--muted);
-}
-
-.hero-mini-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.hero-mini-card {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(18, 32, 58, 0.08);
-}
-
-.hero-mini-card strong {
-  font-size: 1rem;
-}
-
-.hero-mini-card p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.hero-mini-label {
-  color: var(--brand);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .hero-list {
@@ -524,7 +505,9 @@ select {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 18px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(19, 32, 58, 0.08);
 }
 
 .workflow-step {
@@ -1020,6 +1003,8 @@ tr:last-child td {
   cursor: pointer;
   transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
   font-weight: 700;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .primary-button {
@@ -1143,7 +1128,6 @@ tr:last-child td {
 
   .hero-stats,
   .hero-proof,
-  .hero-mini-grid,
   .workflow-strip,
   .rule-builder {
     grid-template-columns: 1fr;
@@ -1166,10 +1150,6 @@ tr:last-child td {
     gap: 10px;
   }
 
-  .hero-mini-grid {
-    gap: 10px;
-  }
-
   .panel-heading,
   .mapping-heading {
     align-items: start;
@@ -1188,6 +1168,11 @@ tr:last-child td {
   .topbar-nav {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .topbar-pills {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .panel {
