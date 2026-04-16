@@ -234,6 +234,73 @@ export function renderRecurring({ elements, recurringSeries, formatCurrencyValue
   elements.recurringList.appendChild(fragment);
 }
 
+export function renderBudgets({
+  elements,
+  budgetMonth,
+  budgetRows,
+  formatMonthLabel,
+  formatCurrencyValue,
+}) {
+  elements.budgetCaption.textContent = `Targets for ${formatMonthLabel(budgetMonth)}`;
+  elements.budgetList.innerHTML = "";
+
+  if (!budgetRows.length) {
+    elements.budgetEmpty.hidden = false;
+    return;
+  }
+
+  elements.budgetEmpty.hidden = true;
+  const fragment = document.createDocumentFragment();
+
+  budgetRows.forEach((row) => {
+    const card = document.createElement("article");
+    card.className = "budget-card";
+    const safePercent = Math.max(0, Math.min(row.percentUsed, 100));
+    const statusClass = row.remaining < 0 ? "over" : "under";
+    card.innerHTML = `
+      <div class="budget-top">
+        <div>
+          <strong>${escapeHtml(row.category)}</strong>
+          <p>${formatCurrencyValue(row.spent)} spent of ${formatCurrencyValue(row.budget || 0)}</p>
+        </div>
+        <span class="budget-remaining ${statusClass}">${row.remaining >= 0 ? "Left" : "Over"} ${formatCurrencyValue(Math.abs(row.remaining))}</span>
+      </div>
+      <label class="budget-input-wrap">
+        Monthly budget
+        <input class="budget-input" data-category="${escapeHtml(row.category)}" type="number" min="0" step="0.01" value="${row.budget || ""}" placeholder="0.00" />
+      </label>
+      <div class="budget-bar-shell">
+        <div class="budget-bar ${statusClass}" style="width:${safePercent}%"></div>
+      </div>
+    `;
+    fragment.appendChild(card);
+  });
+
+  elements.budgetList.appendChild(fragment);
+}
+
+export function renderSpendingPlan({ elements, planCards, formatCurrencyValue }) {
+  elements.planGrid.innerHTML = "";
+  if (!planCards.length) {
+    elements.planEmpty.hidden = false;
+    return;
+  }
+
+  elements.planEmpty.hidden = true;
+  const fragment = document.createDocumentFragment();
+  planCards.forEach((cardData) => {
+    const card = document.createElement("article");
+    card.className = "plan-card";
+    card.innerHTML = `
+      <p>${escapeHtml(cardData.label)}</p>
+      <strong>${formatCurrencyValue(cardData.amount)}</strong>
+      <span>${escapeHtml(cardData.detail)}</span>
+    `;
+    fragment.appendChild(card);
+  });
+  elements.planGrid.appendChild(fragment);
+}
+
 export function renderAccountsAndTransfers({ elements, transactions, accountStats, formatCurrencyValue }) {
   elements.accountList.innerHTML = "";
   elements.transferSummary.innerHTML = "";
@@ -282,12 +349,13 @@ export function renderTransactions({
   formatCurrencyValue,
   formatDateValue,
   onCategoryChange,
+  onEditNote,
   onEditSplit,
 }) {
   elements.transactionsBody.innerHTML = "";
   if (!visibleTransactions.length) {
     const row = document.createElement("tr");
-    row.innerHTML = `<td colspan="8">No transactions match the current filters yet.</td>`;
+    row.innerHTML = `<td colspan="9">No transactions match the current filters yet.</td>`;
     elements.transactionsBody.appendChild(row);
     return;
   }
@@ -319,6 +387,20 @@ export function renderTransactions({
     row.appendChild(categoryCell);
 
     row.appendChild(buildFlagCell(transaction, onEditSplit));
+
+    const noteCell = document.createElement("td");
+    noteCell.className = "note-cell";
+    const notePreview = document.createElement("div");
+    notePreview.className = "note-preview";
+    notePreview.textContent = transaction.note || "No note";
+    noteCell.appendChild(notePreview);
+    const noteButton = document.createElement("button");
+    noteButton.className = "ghost-button small-button";
+    noteButton.type = "button";
+    noteButton.textContent = transaction.note ? "Edit note" : "Add note";
+    noteButton.addEventListener("click", () => onEditNote(transaction));
+    noteCell.appendChild(noteButton);
+    row.appendChild(noteCell);
 
     const amountCell = buildCell(formatCurrencyValue(transaction.amount), "amount-cell");
     amountCell.classList.add(transaction.amount >= 0 ? "positive" : "negative");

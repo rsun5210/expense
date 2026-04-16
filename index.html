@@ -175,7 +175,38 @@
             <section class="insight-block">
               <div class="panel-heading slim-heading">
                 <div>
-                  <p class="section-label">5. Rules</p>
+                  <p class="section-label">5. Budget</p>
+                  <h2>Monthly budgets</h2>
+                </div>
+                <div class="budget-actions">
+                  <button id="save-budgets-button" class="primary-button" type="button">Save month budgets</button>
+                  <button id="clear-budgets-button" class="ghost-button" type="button">Clear month budgets</button>
+                </div>
+              </div>
+              <p id="budget-caption" class="budget-caption"></p>
+              <div id="budget-empty" class="empty-state">Import transactions to set spending targets by category.</div>
+              <div id="budget-list" class="budget-list"></div>
+            </section>
+
+            <section class="insight-block">
+              <div class="panel-heading slim-heading">
+                <div>
+                  <p class="section-label">6. Plan</p>
+                  <h2>Spending plan</h2>
+                </div>
+              </div>
+              <div id="plan-empty" class="empty-state">Import transactions to compare needs, wants, and savings.</div>
+              <div id="plan-grid" class="plan-grid"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel insight-grid-panel">
+          <div class="insight-grid">
+            <section class="insight-block">
+              <div class="panel-heading slim-heading">
+                <div>
+                  <p class="section-label">7. Rules</p>
                   <h2>Automation rules</h2>
                 </div>
               </div>
@@ -197,7 +228,7 @@
             <section class="insight-block">
               <div class="panel-heading slim-heading">
                 <div>
-                  <p class="section-label">6. Recurring</p>
+                  <p class="section-label">8. Recurring</p>
                   <h2>Likely subscriptions</h2>
                 </div>
               </div>
@@ -208,7 +239,7 @@
             <section class="insight-block">
               <div class="panel-heading slim-heading">
                 <div>
-                  <p class="section-label">7. Accounts</p>
+                  <p class="section-label">9. Accounts</p>
                   <h2>Accounts and transfers</h2>
                 </div>
               </div>
@@ -222,7 +253,7 @@
         <section class="panel transactions-panel">
           <div class="panel-heading">
             <div>
-              <p class="section-label">8. Refine</p>
+              <p class="section-label">10. Refine</p>
               <h2>Transactions</h2>
             </div>
             <div class="action-row">
@@ -245,6 +276,7 @@
                   <th>Account</th>
                   <th>Category</th>
                   <th>Flags</th>
+                  <th>Note</th>
                   <th class="amount-col">Amount</th>
                 </tr>
               </thead>

@@ -82,6 +82,7 @@ export function hydrateTransaction(transaction) {
     recurringLabel: transaction.recurringLabel || "",
     recurringCount: transaction.recurringCount || 0,
     recurringAverage: transaction.recurringAverage || 0,
+    note: transaction.note || "",
     splits: Array.isArray(transaction.splits) ? transaction.splits : [],
   };
   hydrated.searchText = buildSearchText(hydrated);
@@ -94,6 +95,7 @@ export function buildSearchText(transaction) {
     transaction.merchant,
     transaction.rawMerchant,
     transaction.category,
+    transaction.note,
     transaction.institution,
     transaction.account,
     transaction.recurringLabel,

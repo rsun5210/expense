@@ -237,8 +237,15 @@ select {
   align-items: end;
 }
 
+.budget-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 input[type="text"],
 input[type="search"],
+input[type="number"],
 select {
   width: 100%;
   min-height: 44px;
@@ -276,6 +283,8 @@ select {
 }
 
 .trends-chart,
+.budget-list,
+.plan-grid,
 .rules-list,
 .recurring-list,
 .account-list {
@@ -288,6 +297,8 @@ select {
 }
 
 .trend-card,
+.budget-card,
+.plan-card,
 .mini-card,
 .transfer-card {
   padding: 18px;
@@ -375,6 +386,74 @@ select {
   text-align: right;
 }
 
+.budget-caption {
+  margin: 0;
+  color: var(--muted);
+}
+
+.budget-list,
+.plan-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.budget-card,
+.plan-card {
+  display: grid;
+  gap: 12px;
+}
+
+.budget-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+}
+
+.budget-top p,
+.plan-card p,
+.plan-card span,
+.budget-input-wrap,
+.note-preview {
+  margin: 0;
+  color: var(--muted);
+}
+
+.budget-input-wrap {
+  display: grid;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+.budget-bar-shell {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(58, 45, 36, 0.08);
+  overflow: hidden;
+}
+
+.budget-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3f9a7c, #1f6b5d);
+}
+
+.budget-bar.over,
+.budget-remaining.over {
+  color: var(--danger);
+}
+
+.budget-bar.over {
+  background: linear-gradient(90deg, #cf7440, #a6502e);
+}
+
+.budget-remaining.under {
+  color: var(--accent);
+}
+
+.plan-card strong {
+  font-size: 1.5rem;
+}
+
 .rule-card {
   align-items: center;
 }
@@ -397,6 +476,17 @@ select {
   font-size: 0.92rem;
   display: grid;
   gap: 8px;
+}
+
+.note-cell {
+  min-width: 220px;
+}
+
+.note-preview {
+  max-width: 240px;
+  margin-bottom: 8px;
+  line-height: 1.45;
+  white-space: normal;
 }
 
 .summary-item {
