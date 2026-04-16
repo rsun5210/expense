@@ -2,13 +2,13 @@
   --bg: #08111f;
   --bg-soft: #101b31;
   --bg-deep: #050c18;
-  --surface: #f2f5fb;
-  --surface-soft: #e9eef8;
-  --surface-muted: #dde5f3;
-  --surface-tint: #e6edf8;
+  --surface: #edf2f8;
+  --surface-soft: #e3eaf4;
+  --surface-muted: #d8e1ee;
+  --surface-tint: #e0e8f3;
   --ink: #13203a;
-  --muted: #66748f;
-  --muted-strong: #4b5871;
+  --muted: #6c7890;
+  --muted-strong: #505c73;
   --line: rgba(18, 32, 58, 0.11);
   --line-strong: rgba(18, 32, 58, 0.16);
   --accent: #17c087;
@@ -45,9 +45,9 @@ body {
   font-family: "Satoshi", "Avenir Next", "Segoe UI", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at 12% 0%, rgba(76, 107, 255, 0.24), transparent 22%),
-    radial-gradient(circle at 88% 8%, rgba(23, 192, 135, 0.1), transparent 18%),
-    linear-gradient(180deg, var(--bg-deep) 0%, #0d1830 32%, #dce6f5 32%, #dde7f5 100%);
+    radial-gradient(circle at 12% 0%, rgba(76, 107, 255, 0.2), transparent 22%),
+    radial-gradient(circle at 88% 8%, rgba(23, 192, 135, 0.08), transparent 18%),
+    linear-gradient(180deg, var(--bg-deep) 0%, #0d1830 32%, #d3ddec 32%, #d5dfed 100%);
 }
 
 body::before {
@@ -253,8 +253,8 @@ select {
 .hero-card {
   padding: 28px;
   background:
-    radial-gradient(circle at top right, rgba(75, 107, 255, 0.08), transparent 22%),
-    linear-gradient(180deg, #edf2fa 0%, #e5ecf7 100%);
+    radial-gradient(circle at top right, rgba(75, 107, 255, 0.06), transparent 22%),
+    linear-gradient(180deg, #e7edf5 0%, #dfe7f1 100%);
   position: relative;
   overflow: hidden;
 }
@@ -404,7 +404,7 @@ select {
 .hero-stat {
   padding: 16px;
   border-radius: var(--radius-md);
-  background: rgba(245, 248, 253, 0.88);
+  background: rgba(239, 244, 250, 0.84);
   border: 1px solid var(--line);
 }
 
@@ -439,7 +439,7 @@ select {
 .panel {
   padding: 24px;
   background:
-    linear-gradient(180deg, rgba(241, 245, 252, 0.96), rgba(232, 238, 248, 0.94));
+    linear-gradient(180deg, rgba(235, 240, 248, 0.96), rgba(225, 232, 243, 0.94));
   backdrop-filter: blur(18px);
   position: relative;
 }
@@ -498,8 +498,8 @@ select {
   border: 1.5px dashed rgba(75, 107, 255, 0.26);
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(circle at top right, rgba(75, 107, 255, 0.06), transparent 30%),
-    linear-gradient(180deg, #eef3fb, #e7edf8);
+    radial-gradient(circle at top right, rgba(75, 107, 255, 0.05), transparent 30%),
+    linear-gradient(180deg, #e8eef7, #e1e8f2);
   text-align: center;
   cursor: pointer;
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
@@ -574,7 +574,7 @@ select {
   margin-top: 22px;
   padding: 22px;
   border-radius: var(--radius-lg);
-  background: rgba(241, 245, 251, 0.92);
+  background: rgba(235, 240, 247, 0.92);
   border: 1px solid var(--line);
 }
 
@@ -659,8 +659,8 @@ textarea {
   padding: 24px 22px;
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(circle at top right, rgba(75, 107, 255, 0.08), transparent 28%),
-    linear-gradient(180deg, #f3f6fb 0%, #e9eef8 100%);
+    radial-gradient(circle at top right, rgba(75, 107, 255, 0.06), transparent 28%),
+    linear-gradient(180deg, #eef3f9 0%, #e2e9f3 100%);
   position: relative;
   overflow: hidden;
   transition: transform 180ms ease, box-shadow 180ms ease;
@@ -720,7 +720,7 @@ textarea {
 .summary-item {
   padding: 18px;
   border-radius: 20px;
-  background: rgba(241, 245, 251, 0.94);
+  background: rgba(235, 240, 247, 0.94);
   border: 1px solid var(--line);
   box-shadow: 0 12px 26px rgba(8, 17, 31, 0.05);
   position: relative;
@@ -933,7 +933,7 @@ textarea {
   border-radius: 20px;
   border: 1px solid var(--line);
   background:
-    linear-gradient(180deg, rgba(241, 245, 251, 0.98), rgba(233, 239, 248, 0.98));
+    linear-gradient(180deg, rgba(235, 240, 247, 0.98), rgba(227, 234, 244, 0.98));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
@@ -955,14 +955,14 @@ th {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--muted);
-  background: #e9eef7;
+  background: #e1e8f2;
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
 tbody tr:nth-child(even) td {
-  background: rgba(229, 236, 247, 0.52);
+  background: rgba(221, 229, 241, 0.54);
 }
 
 tbody tr:hover td {
@@ -1028,7 +1028,7 @@ tr:last-child td {
 
 .ghost-button {
   color: var(--ink);
-  background: rgba(230, 236, 246, 0.9);
+  background: rgba(221, 229, 241, 0.92);
   border: 1px solid var(--line);
 }
 
@@ -1075,7 +1075,7 @@ tr:last-child td {
   padding: 24px;
   border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.54);
-  background: rgba(240, 244, 250, 0.97);
+  background: rgba(234, 240, 247, 0.97);
   box-shadow: 0 30px 60px rgba(8, 17, 31, 0.24);
 }
 
