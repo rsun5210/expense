@@ -13,8 +13,10 @@ import {
 import {
   applyLearnedCategory as applyLearnedCategoryByMerchant,
   buildAccountStats,
+  buildBudgetRows as buildBudgetRowsFromTransactions,
   buildMonthlySeries,
   buildSearchText,
+  buildSpendingPlan as buildSpendingPlanCards,
   buildTransactionId,
   categoryRules,
   clearTransactionSplits,
@@ -601,65 +603,23 @@ function getBudgetsForMonth(month) {
 
 function buildBudgetRows(transactions, month) {
   const monthBudgets = getBudgetsForMonth(month);
-  if (!transactions.length && !Object.keys(monthBudgets).length) {
-    return [];
-  }
-  const spendingByCategory = new Map();
-
-  transactions
-    .filter((transaction) => transaction.amount < 0 && !isMoneyMovement(transaction))
-    .forEach((transaction) => {
-      getCategoryBreakdown(transaction).forEach((item) => {
-        const amount = Math.abs(item.amount);
-        spendingByCategory.set(item.category, (spendingByCategory.get(item.category) || 0) + amount);
-      });
-    });
-
-  return budgetCategories.map((category) => {
-    const spent = spendingByCategory.get(category) || 0;
-    const budget = Number(monthBudgets[category] || 0);
-    const remaining = budget - spent;
-    const percentUsed = budget > 0 ? (spent / budget) * 100 : spent > 0 ? 100 : 0;
-    return { category, spent, budget, remaining, percentUsed };
+  return buildBudgetRowsFromTransactions({
+    transactions,
+    monthBudgets,
+    budgetCategories,
+    isMoneyMovement,
+    getCategoryBreakdown,
   });
 }
 
 function buildSpendingPlan(transactions) {
-  const expenses = transactions.filter((transaction) => transaction.amount < 0 && !isMoneyMovement(transaction));
-  const income = transactions.filter((transaction) => transaction.amount > 0 && !isMoneyMovement(transaction)).reduce((sum, transaction) => sum + transaction.amount, 0);
-
-  let needs = 0;
-  let wants = 0;
-  let subscriptions = 0;
-
-  expenses.forEach((transaction) => {
-    getCategoryBreakdown(transaction).forEach((item) => {
-      const amount = Math.abs(item.amount);
-      if (item.category === "Subscriptions") {
-        subscriptions += amount;
-      }
-      if (needsCategories.has(item.category)) {
-        needs += amount;
-      } else if (wantsCategories.has(item.category)) {
-        wants += amount;
-      } else {
-        wants += amount;
-      }
-    });
+  return buildSpendingPlanCards({
+    transactions,
+    isMoneyMovement,
+    getCategoryBreakdown,
+    needsCategories,
+    wantsCategories,
   });
-
-  const savings = Math.max(0, income - needs - wants);
-  const spending = needs + wants;
-  if (!transactions.length) {
-    return [];
-  }
-
-  return [
-    { label: "Needs", amount: needs, detail: `${spending > 0 ? Math.round((needs / spending) * 100) : 0}% of spending` },
-    { label: "Wants", amount: wants, detail: `${spending > 0 ? Math.round((wants / spending) * 100) : 0}% of spending` },
-    { label: "Potential savings", amount: savings, detail: income > 0 ? `${Math.round((savings / income) * 100)}% of income` : "No income in this view" },
-    { label: "Subscriptions", amount: subscriptions, detail: "Recurring services in this filtered month" },
-  ];
 }
 
 function isMoneyMovement(transaction) {

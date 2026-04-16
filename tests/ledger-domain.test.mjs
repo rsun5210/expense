@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 import {
   applyLearnedCategory,
+  buildBudgetRows,
   buildMonthlySeries,
+  buildSpendingPlan,
   detectRecurringSeries,
   hydrateTransaction,
   inferCategory,
@@ -183,4 +185,83 @@ test("applyLearnedCategory updates matching merchant transactions", () => {
     result.transactions.map((transaction) => transaction.category),
     ["Dining", "Dining"],
   );
+});
+
+test("buildBudgetRows includes spending from categories outside the default budget list", () => {
+  const transactions = [
+    hydrateTransaction({
+      id: "1",
+      date: "2026-04-01",
+      description: "Split order",
+      merchant: "Target",
+      merchantKey: "target",
+      institution: "Card",
+      amount: -30,
+      category: "Other",
+      splits: [
+        { category: "Household", amount: -18 },
+        { category: "Groceries", amount: -12 },
+      ],
+    }),
+  ];
+
+  const rows = buildBudgetRows({
+    transactions,
+    monthBudgets: { Groceries: 100 },
+    budgetCategories: ["Groceries", "Dining"],
+    isMoneyMovement: (transaction) => transaction.isTransfer,
+    getCategoryBreakdown: (transaction) => (transaction.splits?.length ? transaction.splits : [{ category: transaction.category, amount: transaction.amount }]),
+  });
+
+  assert.deepEqual(
+    rows.map((row) => row.category),
+    ["Dining", "Groceries", "Household"],
+  );
+  assert.equal(rows.find((row) => row.category === "Household")?.spent, 18);
+});
+
+test("buildSpendingPlan reports overspending when expenses exceed income", () => {
+  const transactions = [
+    hydrateTransaction({
+      id: "1",
+      date: "2026-04-01",
+      description: "Rent",
+      merchant: "Landlord",
+      merchantKey: "landlord",
+      institution: "Checking",
+      amount: -1000,
+      category: "Housing",
+    }),
+    hydrateTransaction({
+      id: "2",
+      date: "2026-04-02",
+      description: "Shopping spree",
+      merchant: "Store",
+      merchantKey: "store",
+      institution: "Card",
+      amount: -400,
+      category: "Shopping",
+    }),
+    hydrateTransaction({
+      id: "3",
+      date: "2026-04-03",
+      description: "Payroll",
+      merchant: "Payroll",
+      merchantKey: "payroll",
+      institution: "Checking",
+      amount: 1000,
+      category: "Income",
+    }),
+  ];
+
+  const plan = buildSpendingPlan({
+    transactions,
+    isMoneyMovement: (transaction) => transaction.isTransfer,
+    getCategoryBreakdown: (transaction) => (transaction.splits?.length ? transaction.splits : [{ category: transaction.category, amount: transaction.amount }]),
+    needsCategories: new Set(["Housing"]),
+    wantsCategories: new Set(["Shopping"]),
+  });
+
+  assert.equal(plan[2].label, "Overspending");
+  assert.equal(plan[2].amount, 400);
 });
