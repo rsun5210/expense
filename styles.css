@@ -19,8 +19,8 @@
   --danger: #dd5c51;
   --danger-soft: rgba(221, 92, 81, 0.12);
   --warning: #ffb44d;
-  --shadow-xl: 0 30px 90px rgba(3, 10, 24, 0.34);
-  --shadow-lg: 0 18px 44px rgba(8, 17, 31, 0.12);
+  --shadow-xl: 0 24px 72px rgba(3, 10, 24, 0.26);
+  --shadow-lg: 0 12px 30px rgba(8, 17, 31, 0.1);
   --radius-xl: 32px;
   --radius-lg: 24px;
   --radius-md: 18px;
@@ -107,14 +107,14 @@ select {
   align-items: center;
   gap: 18px;
   margin-bottom: 20px;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border-radius: 26px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04)),
-    rgba(8, 17, 31, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 44px rgba(4, 10, 24, 0.24);
-  backdrop-filter: blur(18px);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
+    rgba(8, 17, 31, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 14px 32px rgba(4, 10, 24, 0.18);
+  backdrop-filter: blur(14px);
 }
 
 .brand-lockup {
@@ -164,10 +164,10 @@ select {
 .topbar-nav {
   display: flex;
   gap: 6px;
-  padding: 4px;
+  padding: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   flex: 1;
   justify-content: center;
 }
@@ -218,9 +218,9 @@ select {
 .hero {
   display: grid;
   grid-template-columns: 1.4fr 0.9fr;
-  gap: 24px;
+  gap: 20px;
   align-items: stretch;
-  margin-bottom: 26px;
+  margin-bottom: 24px;
 }
 
 .hero-copy,
@@ -238,12 +238,12 @@ select {
 }
 
 .hero-copy {
-  padding: 44px;
+  padding: 38px;
   color: #fff;
   background:
-    radial-gradient(circle at 80% 18%, rgba(23, 192, 135, 0.2), transparent 22%),
-    radial-gradient(circle at 10% 100%, rgba(75, 107, 255, 0.16), transparent 26%),
-    linear-gradient(145deg, #101d36 0%, #0b1629 100%);
+    radial-gradient(circle at 84% 18%, rgba(23, 192, 135, 0.14), transparent 22%),
+    radial-gradient(circle at 10% 100%, rgba(75, 107, 255, 0.12), transparent 24%),
+    linear-gradient(145deg, #0f1b34 0%, #0b1629 100%);
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: var(--shadow-xl);
   position: relative;
@@ -251,10 +251,10 @@ select {
 }
 
 .hero-card {
-  padding: 28px;
+  padding: 24px;
   background:
-    radial-gradient(circle at top right, rgba(75, 107, 255, 0.06), transparent 22%),
-    linear-gradient(180deg, #e7edf5 0%, #dfe7f1 100%);
+    radial-gradient(circle at top right, rgba(75, 107, 255, 0.04), transparent 20%),
+    linear-gradient(180deg, #e8eef6 0%, #e3eaf3 100%);
   position: relative;
   overflow: hidden;
 }
@@ -268,10 +268,10 @@ select {
   content: "";
   position: absolute;
   inset: auto -40px -40px auto;
-  width: 180px;
-  height: 180px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 68%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.06), transparent 68%);
   pointer-events: none;
 }
 
@@ -280,7 +280,7 @@ select {
   justify-content: space-between;
   gap: 12px;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .hero-card-badge {
@@ -308,8 +308,8 @@ select {
 .hero h1 {
   margin: 0;
   max-width: 13.5ch;
-  font-size: clamp(2.45rem, 4.25vw, 4.15rem);
-  line-height: 1;
+  font-size: clamp(2.3rem, 4vw, 3.85rem);
+  line-height: 0.98;
   letter-spacing: -0.04em;
 }
 
@@ -326,17 +326,17 @@ select {
 
 .hero-text {
   max-width: 60ch;
-  margin: 16px 0 0;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 0.98rem;
-  line-height: 1.56;
+  margin: 14px 0 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.95rem;
+  line-height: 1.52;
 }
 
 .hero-actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-  margin-top: 22px;
+  margin-top: 18px;
 }
 
 .hero-button {
@@ -352,16 +352,16 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .hero-proof-item {
   display: grid;
   gap: 6px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .hero-proof-item strong {
@@ -376,14 +376,14 @@ select {
 .hero-highlights {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .hero-pill {
   color: #e6edff;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .hero-card-label {
@@ -393,22 +393,22 @@ select {
 }
 
 .hero-card-summary {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   color: var(--muted);
-  line-height: 1.58;
+  line-height: 1.52;
 }
 
 .hero-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .hero-stat {
-  padding: 16px;
+  padding: 14px;
   border-radius: var(--radius-md);
-  background: rgba(239, 244, 250, 0.84);
+  background: rgba(239, 244, 250, 0.7);
   border: 1px solid var(--line);
 }
 
@@ -428,22 +428,22 @@ select {
 .hero-list {
   margin: 0;
   padding-left: 18px;
-  line-height: 1.64;
+  line-height: 1.56;
 }
 
 .hero-note {
-  margin: 14px 0 0;
+  margin: 12px 0 0;
 }
 
 .dashboard {
   display: grid;
-  gap: 22px;
+  gap: 18px;
 }
 
 .panel {
-  padding: 24px;
+  padding: 22px;
   background:
-    linear-gradient(180deg, rgba(235, 240, 248, 0.96), rgba(225, 232, 243, 0.94));
+    linear-gradient(180deg, rgba(237, 242, 248, 0.97), rgba(229, 235, 244, 0.95));
   backdrop-filter: blur(18px);
   position: relative;
 }
@@ -455,7 +455,7 @@ select {
   left: 24px;
   right: 24px;
   height: 1px;
-  background: linear-gradient(90deg, rgba(75, 107, 255, 0.22), rgba(23, 192, 135, 0.14), transparent);
+  background: linear-gradient(90deg, rgba(75, 107, 255, 0.16), rgba(23, 192, 135, 0.1), transparent);
 }
 
 .panel-intro {
@@ -470,8 +470,8 @@ select {
   justify-content: space-between;
   gap: 16px;
   align-items: end;
-  margin-bottom: 20px;
-  padding-bottom: 14px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
   border-bottom: 1px solid rgba(19, 32, 58, 0.06);
 }
 
@@ -494,7 +494,7 @@ select {
 .import-secondary-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
@@ -509,12 +509,12 @@ select {
 .dropzone {
   display: grid;
   place-items: center;
-  padding: 38px 20px;
-  border: 1.5px dashed rgba(75, 107, 255, 0.26);
+  padding: 34px 20px;
+  border: 1.5px dashed rgba(75, 107, 255, 0.2);
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(circle at top right, rgba(75, 107, 255, 0.05), transparent 30%),
-    linear-gradient(180deg, #e8eef7, #e1e8f2);
+    radial-gradient(circle at top right, rgba(75, 107, 255, 0.04), transparent 30%),
+    linear-gradient(180deg, #ebf0f7, #e5ebf4);
   text-align: center;
   cursor: pointer;
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
@@ -523,20 +523,20 @@ select {
 .workflow-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 22px;
-  padding-top: 20px;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid rgba(19, 32, 58, 0.08);
 }
 
 .workflow-step {
   display: grid;
   gap: 8px;
-  padding: 16px;
+  padding: 15px;
   border-radius: 20px;
-  background: var(--surface);
+  background: rgba(239, 244, 250, 0.8);
   border: 1px solid var(--line);
-  box-shadow: 0 12px 24px rgba(8, 17, 31, 0.05);
+  box-shadow: 0 8px 18px rgba(8, 17, 31, 0.04);
 }
 
 .workflow-step span {
@@ -671,11 +671,11 @@ textarea {
 }
 
 .metric-card {
-  padding: 20px 20px 18px;
+  padding: 18px 18px 16px;
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(circle at top right, rgba(75, 107, 255, 0.06), transparent 28%),
-    linear-gradient(180deg, #eef3f9 0%, #e2e9f3 100%);
+    radial-gradient(circle at top right, rgba(75, 107, 255, 0.04), transparent 28%),
+    linear-gradient(180deg, #eff4f9 0%, #e6ecf4 100%);
   position: relative;
   overflow: hidden;
   transition: transform 180ms ease, box-shadow 180ms ease;
@@ -686,9 +686,9 @@ textarea {
   position: absolute;
   inset: 0 auto auto 0;
   width: 100%;
-  height: 4px;
-  background: linear-gradient(90deg, #4b6bff, #17c087);
-  opacity: 0.9;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(75, 107, 255, 0.86), rgba(23, 192, 135, 0.72));
+  opacity: 0.85;
 }
 
 .metric-card:hover {
@@ -733,11 +733,11 @@ textarea {
 .mini-card,
 .transfer-card,
 .summary-item {
-  padding: 16px;
+  padding: 15px;
   border-radius: 20px;
-  background: rgba(235, 240, 247, 0.94);
+  background: rgba(238, 243, 248, 0.9);
   border: 1px solid var(--line);
-  box-shadow: 0 12px 26px rgba(8, 17, 31, 0.05);
+  box-shadow: 0 8px 20px rgba(8, 17, 31, 0.04);
   position: relative;
   overflow: hidden;
   transition: transform 180ms ease, box-shadow 180ms ease;
@@ -753,7 +753,7 @@ textarea {
   inset: 0 auto auto 0;
   width: 100%;
   height: 3px;
-  background: linear-gradient(90deg, rgba(75, 107, 255, 0.72), rgba(23, 192, 135, 0.56));
+  background: linear-gradient(90deg, rgba(75, 107, 255, 0.58), rgba(23, 192, 135, 0.46));
 }
 
 .summary-item {
@@ -948,7 +948,7 @@ textarea {
   border-radius: 20px;
   border: 1px solid var(--line);
   background:
-    linear-gradient(180deg, rgba(235, 240, 247, 0.98), rgba(227, 234, 244, 0.98));
+    linear-gradient(180deg, rgba(238, 243, 248, 0.98), rgba(231, 237, 245, 0.98));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
