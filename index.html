@@ -30,8 +30,13 @@
             <span class="brand-subtitle">Local-first money dashboard</span>
           </div>
         </div>
+        <div class="topbar-nav">
+          <a class="topbar-link" href="#import-panel">Import</a>
+          <a class="topbar-link" href="#insights-panel">Insights</a>
+          <a class="topbar-link" href="#transactions-panel">Transactions</a>
+        </div>
         <div class="topbar-pills">
-          <span class="topbar-pill">Private in your browser</span>
+          <span class="topbar-pill topbar-pill-status"><span class="status-dot"></span>Local-only</span>
           <span class="topbar-pill">CSV imports</span>
         </div>
       </div>
@@ -50,6 +55,20 @@
             <span class="hero-pill">Spending plan</span>
             <span class="hero-pill">Private notes</span>
           </div>
+          <div class="hero-actions">
+            <a class="primary-button hero-button" href="#import-panel">Start importing</a>
+            <a class="ghost-button hero-button" href="#insights-panel">Jump to insights</a>
+          </div>
+          <div class="hero-proof">
+            <div class="hero-proof-item">
+              <strong>Browser-only storage</strong>
+              <span>No account required to get started.</span>
+            </div>
+            <div class="hero-proof-item">
+              <strong>Fast setup</strong>
+              <span>Sample CSV and saved mappings reduce repeat work.</span>
+            </div>
+          </div>
         </div>
         <div class="hero-card">
           <div class="hero-card-header">
@@ -66,6 +85,18 @@
               <span>money-planning tools</span>
             </article>
           </div>
+          <div class="hero-mini-grid">
+            <article class="hero-mini-card">
+              <span class="hero-mini-label">Import flow</span>
+              <strong>Map once</strong>
+              <p>Saved statement mappings keep repeat imports quick.</p>
+            </article>
+            <article class="hero-mini-card">
+              <span class="hero-mini-label">Monthly review</span>
+              <strong>Catch drift</strong>
+              <p>Budgets, notes, and recurring charges surface what changed.</p>
+            </article>
+          </div>
           <ul class="hero-list">
             <li>CSV exports from credit cards and banks</li>
             <li>Mixed imports over time</li>
@@ -77,11 +108,12 @@
       </header>
 
       <main class="dashboard">
-        <section class="panel import-panel">
+        <section id="import-panel" class="panel import-panel">
           <div class="panel-heading">
             <div>
               <p class="section-label">1. Import statements</p>
               <h2>Add a CSV statement</h2>
+              <p class="panel-intro">Bring in card or bank exports, map the columns once, and keep your ledger private to this browser.</p>
             </div>
             <div class="action-row">
               <button id="load-sample-button" class="ghost-button" type="button">Try sample CSV</button>
@@ -100,6 +132,24 @@
               Supports bank and card exports as long as the statement is tabular.
             </span>
           </label>
+
+          <div class="workflow-strip">
+            <article class="workflow-step">
+              <span>1</span>
+              <strong>Upload a statement</strong>
+              <p>Drag in a CSV or try the built-in sample to preview the full flow.</p>
+            </article>
+            <article class="workflow-step">
+              <span>2</span>
+              <strong>Confirm the mapping</strong>
+              <p>Check dates, descriptions, amounts, and account columns before import.</p>
+            </article>
+            <article class="workflow-step">
+              <span>3</span>
+              <strong>Review the dashboard</strong>
+              <p>Budgets, recurring charges, and notes update immediately after import.</p>
+            </article>
+          </div>
 
           <div id="mapping-panel" class="mapping-panel hidden">
             <div class="mapping-heading">
@@ -201,11 +251,12 @@
           <div id="trends-chart" class="trends-chart"></div>
         </section>
 
-        <section class="panel summary-panel">
+        <section id="insights-panel" class="panel summary-panel">
           <div class="panel-heading">
             <div>
               <p class="section-label">4. Review</p>
               <h2>Spending by category</h2>
+              <p class="panel-intro">Use the month filter to narrow the dashboard, then compare category totals against budgets and recurring patterns.</p>
             </div>
             <label class="month-filter">
               Month
@@ -299,11 +350,12 @@
           </div>
         </section>
 
-        <section class="panel transactions-panel">
+        <section id="transactions-panel" class="panel transactions-panel">
           <div class="panel-heading">
             <div>
               <p class="section-label">10. Refine</p>
               <h2>Transactions</h2>
+              <p class="panel-intro">Search by merchant, note, institution, or account, then clean up categories and split purchases inline.</p>
             </div>
             <div class="action-row">
               <button id="rerun-categories-button" class="ghost-button" type="button">Re-run categories</button>
