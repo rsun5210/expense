@@ -267,16 +267,16 @@
               <div class="panel-heading slim-heading">
                 <div>
                   <p class="section-label">5. Budget</p>
-                  <h2>Monthly budgets</h2>
+                  <h2>Assign your plan</h2>
                 </div>
                 <div class="budget-actions">
                   <button id="copy-budgets-button" class="ghost-button" type="button">Copy previous month</button>
-                  <button id="save-budgets-button" class="primary-button" type="button">Save month budgets</button>
-                  <button id="clear-budgets-button" class="ghost-button" type="button">Clear month budgets</button>
+                  <button id="save-budgets-button" class="primary-button" type="button">Save assigned amounts</button>
+                  <button id="clear-budgets-button" class="ghost-button" type="button">Clear assigned amounts</button>
                 </div>
               </div>
               <p id="budget-caption" class="budget-caption"></p>
-              <div id="budget-empty" class="empty-state">Import transactions to set spending targets by category.</div>
+              <div id="budget-empty" class="empty-state">Import transactions to assign money by category and track what is still available.</div>
               <div id="budget-list" class="budget-list"></div>
             </section>
 
@@ -339,21 +339,59 @@
               <div id="account-list" class="account-list"></div>
               <div id="transfer-summary" class="transfer-summary"></div>
             </section>
+
+            <section class="insight-block">
+              <div class="panel-heading slim-heading">
+                <div>
+                  <p class="section-label">10. Goals</p>
+                  <h2>Savings goals</h2>
+                </div>
+                <button id="add-goal-button" class="primary-button" type="button">Add goal</button>
+              </div>
+              <div id="goals-empty" class="empty-state">Add a goal to track progress from your available category balances.</div>
+              <div id="goals-list" class="account-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel insight-grid-panel">
+          <div class="insight-grid">
+            <section class="insight-block">
+              <div class="panel-heading slim-heading">
+                <div>
+                  <p class="section-label">11. Review</p>
+                  <h2>Review queue</h2>
+                </div>
+                <button id="mark-visible-reviewed-button" class="primary-button" type="button">Mark visible reviewed</button>
+              </div>
+              <div id="review-summary" class="summary-list"></div>
+            </section>
+
+            <section class="insight-block">
+              <div class="panel-heading slim-heading">
+                <div>
+                  <p class="section-label">12. Merchants</p>
+                  <h2>Merchant trends</h2>
+                </div>
+              </div>
+              <div id="merchant-insights-empty" class="empty-state">Import a month of spending to see top merchants and how they changed.</div>
+              <div id="merchant-insights-list" class="account-list"></div>
+            </section>
           </div>
         </section>
 
         <section id="transactions-panel" class="panel transactions-panel">
           <div class="panel-heading">
             <div>
-              <p class="section-label">10. Refine</p>
+              <p class="section-label">13. Refine</p>
               <h2>Transactions</h2>
-              <p class="panel-intro">Search by merchant, note, institution, or account, then clean up categories and split purchases inline.</p>
+              <p class="panel-intro">Search by merchant, note, tag, institution, or account, then clean up categories and review transactions inline.</p>
             </div>
             <div class="action-row transactions-toolbar">
               <button id="rerun-categories-button" class="ghost-button" type="button">Re-run categories</button>
               <label class="search-field">
                 Search
-                <input id="search-input" type="search" placeholder="Merchant, note, institution..." />
+                <input id="search-input" type="search" placeholder="Merchant, tag, note, institution..." />
               </label>
             </div>
           </div>
@@ -369,7 +407,9 @@
                   <th>Account</th>
                   <th>Category</th>
                   <th>Flags</th>
+                  <th>Review</th>
                   <th>Note</th>
+                  <th>Tags</th>
                   <th class="amount-col">Amount</th>
                 </tr>
               </thead>

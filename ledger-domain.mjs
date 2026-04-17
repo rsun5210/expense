@@ -83,6 +83,8 @@ export function hydrateTransaction(transaction) {
     recurringCount: transaction.recurringCount || 0,
     recurringAverage: transaction.recurringAverage || 0,
     note: transaction.note || "",
+    tags: Array.isArray(transaction.tags) ? transaction.tags.map((tag) => String(tag).trim()).filter(Boolean) : [],
+    reviewed: Boolean(transaction.reviewed),
     splits: Array.isArray(transaction.splits) ? transaction.splits : [],
   };
   hydrated.searchText = buildSearchText(hydrated);
@@ -116,12 +118,73 @@ export function sanitizeLedgerBudgets(budgets) {
   return nextBudgets;
 }
 
+export function sanitizeGoals(goals) {
+  if (!Array.isArray(goals)) {
+    return [];
+  }
+
+  return goals.flatMap((goal) => {
+    if (!goal || typeof goal !== "object" || Array.isArray(goal)) {
+      return [];
+    }
+
+    const id = String(goal.id || "").trim();
+    const name = String(goal.name || "").trim();
+    const category = String(goal.category || "").trim();
+    const targetMonth = String(goal.targetMonth || "").trim();
+    const targetAmount = Number.parseFloat(String(goal.targetAmount));
+
+    if (!id || !name || !category || !targetMonth || !Number.isFinite(targetAmount) || targetAmount <= 0) {
+      return [];
+    }
+
+    return [{
+      id,
+      name,
+      category,
+      targetMonth,
+      targetAmount: Number(targetAmount.toFixed(2)),
+    }];
+  });
+}
+
+function getPreviousMonth(month) {
+  const [yearText, monthText] = String(month).split("-");
+  const year = Number(yearText);
+  const monthIndex = Number(monthText);
+  if (!Number.isInteger(year) || !Number.isInteger(monthIndex) || monthIndex < 1 || monthIndex > 12) {
+    return "";
+  }
+  const date = new Date(year, monthIndex - 2, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getMonthlyMerchantSpend(transactions, isMoneyMovement) {
+  const spendingByMonth = new Map();
+
+  transactions
+    .filter((transaction) => transaction.amount < 0 && !isMoneyMovement(transaction))
+    .forEach((transaction) => {
+      const month = transaction.date.slice(0, 7);
+      const merchantLabel = transaction.merchant || transaction.rawMerchant || transaction.description;
+      const monthMap = spendingByMonth.get(month) || new Map();
+      const current = monthMap.get(merchantLabel) || { amount: 0, count: 0 };
+      current.amount += Math.abs(transaction.amount);
+      current.count += 1;
+      monthMap.set(merchantLabel, current);
+      spendingByMonth.set(month, monthMap);
+    });
+
+  return spendingByMonth;
+}
+
 export function buildLedgerPayload({
   transactions = [],
   importPresets = {},
   merchantRules = {},
   rules = [],
   budgets = {},
+  goals = [],
   exportedAt = new Date().toISOString(),
   version = 1,
 }) {
@@ -133,6 +196,7 @@ export function buildLedgerPayload({
     merchantRules: merchantRules && typeof merchantRules === "object" && !Array.isArray(merchantRules) ? merchantRules : {},
     rules: Array.isArray(rules) ? rules : [],
     budgets: sanitizeLedgerBudgets(budgets),
+    goals: sanitizeGoals(goals),
   };
 }
 
@@ -151,6 +215,7 @@ export function parseLedgerPayload(payload) {
     merchantRules: payload.merchantRules && typeof payload.merchantRules === "object" && !Array.isArray(payload.merchantRules) ? payload.merchantRules : {},
     rules: Array.isArray(payload.rules) ? payload.rules : [],
     budgets: sanitizeLedgerBudgets(payload.budgets),
+    goals: sanitizeGoals(payload.goals),
   };
 }
 
@@ -161,6 +226,8 @@ export function buildSearchText(transaction) {
     transaction.rawMerchant,
     transaction.category,
     transaction.note,
+    ...(transaction.tags || []),
+    transaction.reviewed ? "reviewed" : "needs review",
     transaction.institution,
     transaction.account,
     transaction.recurringLabel,
@@ -360,33 +427,106 @@ export function clearTransactionSplits(transaction) {
   transaction.splits = [];
 }
 
-export function buildBudgetRows({ transactions, monthBudgets = {}, budgetCategories = [], isMoneyMovement, getCategoryBreakdown }) {
-  if (!transactions.length && !Object.keys(monthBudgets).length) {
-    return [];
-  }
-
-  const spendingByCategory = new Map();
+function buildMonthlySpendingByCategory(transactions, isMoneyMovement, getCategoryBreakdown) {
+  const spendingByMonth = new Map();
 
   transactions
     .filter((transaction) => transaction.amount < 0 && !isMoneyMovement(transaction))
     .forEach((transaction) => {
+      const month = transaction.date.slice(0, 7);
+      const monthMap = spendingByMonth.get(month) || new Map();
       getCategoryBreakdown(transaction).forEach((item) => {
         const amount = Math.abs(item.amount);
-        spendingByCategory.set(item.category, (spendingByCategory.get(item.category) || 0) + amount);
+        monthMap.set(item.category, (monthMap.get(item.category) || 0) + amount);
       });
+      spendingByMonth.set(month, monthMap);
     });
 
-  const categories = [...new Set([...budgetCategories, ...Object.keys(monthBudgets), ...spendingByCategory.keys()])];
+  return spendingByMonth;
+}
 
-  return categories
-    .sort((left, right) => left.localeCompare(right))
-    .map((category) => {
-      const spent = spendingByCategory.get(category) || 0;
-      const budget = Number(monthBudgets[category] || 0);
-      const remaining = budget - spent;
-      const percentUsed = budget > 0 ? (spent / budget) * 100 : spent > 0 ? 100 : 0;
-      return { category, spent, budget, remaining, percentUsed };
+export function buildBudgetRows({ month, transactions, budgetsByMonth = {}, budgetCategories = [], isMoneyMovement, getCategoryBreakdown }) {
+  const monthBudgets = budgetsByMonth[month] || {};
+  if (!transactions.length && !Object.keys(monthBudgets).length) {
+    return [];
+  }
+
+  const spendingByMonth = buildMonthlySpendingByCategory(transactions, isMoneyMovement, getCategoryBreakdown);
+  const months = [...new Set([month, ...Object.keys(budgetsByMonth), ...transactions.map((transaction) => transaction.date.slice(0, 7))])]
+    .filter((value) => value <= month)
+    .sort();
+  const availableByCategory = new Map();
+  let activeRows = [];
+
+  months.forEach((monthKey) => {
+    const monthAssignments = budgetsByMonth[monthKey] || {};
+    const spendingByCategory = spendingByMonth.get(monthKey) || new Map();
+    const categories = [
+      ...new Set([
+        ...budgetCategories,
+        ...availableByCategory.keys(),
+        ...Object.keys(monthAssignments),
+        ...spendingByCategory.keys(),
+      ]),
+    ];
+
+    const nextAvailableByCategory = new Map();
+    const rows = categories
+      .sort((left, right) => left.localeCompare(right))
+      .map((category) => {
+        const carryover = Number((availableByCategory.get(category) || 0).toFixed(2));
+        const assigned = Number(Number(monthAssignments[category] || 0).toFixed(2));
+        const spent = Number((spendingByCategory.get(category) || 0).toFixed(2));
+        const funding = carryover + assigned;
+        const available = Number((funding - spent).toFixed(2));
+        const percentUsed = funding > 0 ? (spent / funding) * 100 : spent > 0 ? 100 : 0;
+        nextAvailableByCategory.set(category, available);
+        return {
+          category,
+          assigned,
+          spent,
+          activity: spent,
+          carryover,
+          funding,
+          available,
+          remaining: available,
+          percentUsed,
+        };
+      });
+
+    if (monthKey === month) {
+      activeRows = rows;
+    }
+    availableByCategory.clear();
+    nextAvailableByCategory.forEach((value, category) => {
+      availableByCategory.set(category, value);
     });
+  });
+
+  return activeRows;
+}
+
+export function buildBudgetSummary({ month, transactions, budgetsByMonth = {}, budgetRows = [], isMoneyMovement }) {
+  const assigned = budgetRows.reduce((sum, row) => sum + row.assigned, 0);
+  const activity = budgetRows.reduce((sum, row) => sum + row.activity, 0);
+  const available = budgetRows.reduce((sum, row) => sum + row.available, 0);
+  const carried = budgetRows.reduce((sum, row) => sum + Math.max(row.carryover, 0), 0);
+  const income = transactions
+    .filter((transaction) => transaction.date.startsWith(month) && transaction.amount > 0 && !isMoneyMovement(transaction))
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const readyToAssign = Number((income - assigned).toFixed(2));
+  const previousMonth = getPreviousMonth(month);
+  const previousAssigned = previousMonth && budgetsByMonth[previousMonth] ? Object.values(budgetsByMonth[previousMonth]).reduce((sum, value) => sum + Number(value || 0), 0) : 0;
+
+  return {
+    assigned: Number(assigned.toFixed(2)),
+    activity: Number(activity.toFixed(2)),
+    available: Number(available.toFixed(2)),
+    carried: Number(carried.toFixed(2)),
+    income: Number(income.toFixed(2)),
+    readyToAssign,
+    previousAssigned: Number(previousAssigned.toFixed(2)),
+  };
 }
 
 export function buildSpendingPlan({ transactions, isMoneyMovement, getCategoryBreakdown, needsCategories, wantsCategories }) {
@@ -427,4 +567,68 @@ export function buildSpendingPlan({ transactions, isMoneyMovement, getCategoryBr
     { label: savings >= 0 ? "Potential savings" : "Overspending", amount: Math.abs(savings), detail: income > 0 ? `${Math.round((Math.abs(savings) / income) * 100)}% of income` : "No income in this view" },
     { label: "Subscriptions", amount: subscriptions, detail: "Recurring services in this filtered month" },
   ];
+}
+
+export function buildGoalRows({ goals = [], budgetRows = [], formatMonthLabel = (value) => value }) {
+  const budgetByCategory = new Map(budgetRows.map((row) => [row.category, row]));
+
+  return sanitizeGoals(goals)
+    .map((goal) => {
+      const linkedBudget = budgetByCategory.get(goal.category);
+      const saved = linkedBudget ? Math.max(linkedBudget.available, 0) : 0;
+      const remaining = Math.max(goal.targetAmount - saved, 0);
+      const progress = goal.targetAmount > 0 ? Math.min((saved / goal.targetAmount) * 100, 100) : 0;
+      return {
+        ...goal,
+        saved: Number(saved.toFixed(2)),
+        remaining: Number(remaining.toFixed(2)),
+        progress,
+        targetLabel: formatMonthLabel(goal.targetMonth),
+      };
+    })
+    .sort((left, right) => left.targetMonth.localeCompare(right.targetMonth) || left.name.localeCompare(right.name));
+}
+
+export function buildReviewSummary({ transactions = [], isMoneyMovement }) {
+  const spendingTransactions = transactions.filter((transaction) => !isMoneyMovement(transaction));
+  const pending = spendingTransactions.filter((transaction) => !transaction.reviewed);
+  const reviewed = spendingTransactions.filter((transaction) => transaction.reviewed);
+  const pendingOutflows = pending.filter((transaction) => transaction.amount < 0).reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
+  const pendingInflows = pending.filter((transaction) => transaction.amount > 0).reduce((sum, transaction) => sum + transaction.amount, 0);
+
+  return {
+    totalCount: spendingTransactions.length,
+    reviewedCount: reviewed.length,
+    pendingCount: pending.length,
+    pendingOutflows: Number(pendingOutflows.toFixed(2)),
+    pendingInflows: Number(pendingInflows.toFixed(2)),
+    reviewedRate: spendingTransactions.length ? (reviewed.length / spendingTransactions.length) * 100 : 0,
+  };
+}
+
+export function buildMerchantInsights({ transactions = [], month, isMoneyMovement }) {
+  if (!month) {
+    return [];
+  }
+
+  const spendingByMonth = getMonthlyMerchantSpend(transactions, isMoneyMovement);
+  const current = spendingByMonth.get(month) || new Map();
+  const previous = spendingByMonth.get(getPreviousMonth(month)) || new Map();
+
+  return [...current.entries()]
+    .map(([merchant, stats]) => {
+      const previousStats = previous.get(merchant) || { amount: 0, count: 0 };
+      const changeAmount = stats.amount - previousStats.amount;
+      const changePercent = previousStats.amount > 0 ? (changeAmount / previousStats.amount) * 100 : stats.amount > 0 ? 100 : 0;
+      return {
+        merchant,
+        amount: Number(stats.amount.toFixed(2)),
+        count: stats.count,
+        previousAmount: Number(previousStats.amount.toFixed(2)),
+        changeAmount: Number(changeAmount.toFixed(2)),
+        changePercent,
+      };
+    })
+    .sort((left, right) => right.amount - left.amount)
+    .slice(0, 6);
 }

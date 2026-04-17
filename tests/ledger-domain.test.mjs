@@ -4,8 +4,12 @@ import assert from "node:assert/strict";
 import {
   applyLearnedCategory,
   buildBudgetRows,
+  buildBudgetSummary,
+  buildGoalRows,
   buildLedgerPayload,
+  buildMerchantInsights,
   buildMonthlySeries,
+  buildReviewSummary,
   buildSpendingPlan,
   detectRecurringSeries,
   hydrateTransaction,
@@ -208,8 +212,11 @@ test("buildBudgetRows includes spending from categories outside the default budg
   ];
 
   const rows = buildBudgetRows({
+    month: "2026-04",
     transactions,
-    monthBudgets: { Groceries: 100 },
+    budgetsByMonth: {
+      "2026-04": { Groceries: 100 },
+    },
     budgetCategories: ["Groceries", "Dining"],
     isMoneyMovement: (transaction) => transaction.isTransfer,
     getCategoryBreakdown: (transaction) => (transaction.splits?.length ? transaction.splits : [{ category: transaction.category, amount: transaction.amount }]),
@@ -220,6 +227,115 @@ test("buildBudgetRows includes spending from categories outside the default budg
     ["Dining", "Groceries", "Household"],
   );
   assert.equal(rows.find((row) => row.category === "Household")?.spent, 18);
+});
+
+test("buildBudgetRows carries available balances forward month to month", () => {
+  const transactions = [
+    hydrateTransaction({
+      id: "1",
+      date: "2026-03-03",
+      description: "Trader Joe's",
+      merchant: "Trader Joe's",
+      merchantKey: "trader joe's",
+      institution: "Card",
+      amount: -60,
+      category: "Groceries",
+    }),
+    hydrateTransaction({
+      id: "2",
+      date: "2026-04-05",
+      description: "Trader Joe's",
+      merchant: "Trader Joe's",
+      merchantKey: "trader joe's",
+      institution: "Card",
+      amount: -110,
+      category: "Groceries",
+    }),
+  ];
+
+  const rows = buildBudgetRows({
+    month: "2026-04",
+    transactions,
+    budgetsByMonth: {
+      "2026-03": { Groceries: 200 },
+      "2026-04": { Groceries: 100 },
+    },
+    budgetCategories: ["Groceries"],
+    isMoneyMovement: (transaction) => transaction.isTransfer,
+    getCategoryBreakdown: (transaction) => (transaction.splits?.length ? transaction.splits : [{ category: transaction.category, amount: transaction.amount }]),
+  });
+
+  assert.deepEqual(rows, [
+    {
+      category: "Groceries",
+      assigned: 100,
+      spent: 110,
+      activity: 110,
+      carryover: 140,
+      funding: 240,
+      available: 130,
+      remaining: 130,
+      percentUsed: 45.83333333333333,
+    },
+  ]);
+});
+
+test("buildBudgetSummary reports ready to assign and carryover totals", () => {
+  const transactions = [
+    hydrateTransaction({
+      id: "1",
+      date: "2026-04-01",
+      description: "Payroll",
+      merchant: "Payroll",
+      merchantKey: "payroll",
+      institution: "Checking",
+      amount: 2500,
+      category: "Income",
+    }),
+    hydrateTransaction({
+      id: "2",
+      date: "2026-03-05",
+      description: "Trader Joe's",
+      merchant: "Trader Joe's",
+      merchantKey: "trader joe's",
+      institution: "Card",
+      amount: -50,
+      category: "Groceries",
+    }),
+  ];
+
+  const rows = buildBudgetRows({
+    month: "2026-04",
+    transactions,
+    budgetsByMonth: {
+      "2026-03": { Groceries: 150 },
+      "2026-04": { Groceries: 300, Dining: 100 },
+    },
+    budgetCategories: ["Groceries", "Dining"],
+    isMoneyMovement: (transaction) => transaction.isTransfer,
+    getCategoryBreakdown: (transaction) => (transaction.splits?.length ? transaction.splits : [{ category: transaction.category, amount: transaction.amount }]),
+  });
+
+  const summary = buildBudgetSummary({
+    month: "2026-04",
+    transactions,
+    budgetsByMonth: {
+      "2026-03": { Groceries: 150 },
+      "2026-04": { Groceries: 300, Dining: 100 },
+    },
+    budgetRows: rows,
+    isMoneyMovement: (transaction) => transaction.isTransfer,
+  });
+
+  assert.deepEqual(summary, {
+    assigned: 400,
+    activity: 0,
+    available: 500,
+    carried: 100,
+    income: 2500,
+    readyToAssign: 2100,
+    previousAssigned: 150,
+  });
 });
 
 test("buildSpendingPlan reports overspending when expenses exceed income", () => {
@@ -293,6 +409,10 @@ test("buildLedgerPayload keeps notes and sanitizes budget persistence data", () 
       },
       "2026-05": [],
     },
+    goals: [
+      { id: "goal-1", name: "Vacation", category: "Travel", targetAmount: "1200", targetMonth: "2026-08" },
+      { id: "goal-2", name: "", category: "Travel", targetAmount: 300, targetMonth: "2026-09" },
+    ],
   });
 
   assert.equal(payload.version, 2);
@@ -302,6 +422,9 @@ test("buildLedgerPayload keeps notes and sanitizes budget persistence data", () 
       Groceries: 300,
     },
   });
+  assert.deepEqual(payload.goals, [
+    { id: "goal-1", name: "Vacation", category: "Travel", targetAmount: 1200, targetMonth: "2026-08" },
+  ]);
 });
 
 test("parseLedgerPayload normalizes imported transactions, notes, and budgets", () => {
@@ -329,6 +452,9 @@ test("parseLedgerPayload normalizes imported transactions, notes, and budgets", 
         Empty: "",
       },
     },
+    goals: [
+      { id: "goal-1", name: "Emergency fund", category: "Groceries", targetAmount: "500", targetMonth: "2026-06" },
+    ],
   });
 
   assert.equal(parsed.transactions[0].note, "Cleaning supplies + snacks");
@@ -339,6 +465,143 @@ test("parseLedgerPayload normalizes imported transactions, notes, and budgets", 
       Groceries: 220,
     },
   });
+  assert.deepEqual(parsed.goals, [
+    { id: "goal-1", name: "Emergency fund", category: "Groceries", targetAmount: 500, targetMonth: "2026-06" },
+  ]);
+});
+
+test("buildGoalRows uses available budget balances for progress", () => {
+  const rows = buildGoalRows({
+    goals: [{ id: "goal-1", name: "Vacation", category: "Travel", targetAmount: 1000, targetMonth: "2026-08" }],
+    budgetRows: [{ category: "Travel", available: 250 }],
+    formatMonthLabel: (value) => value,
+  });
+
+  assert.deepEqual(rows, [
+    {
+      id: "goal-1",
+      name: "Vacation",
+      category: "Travel",
+      targetAmount: 1000,
+      targetMonth: "2026-08",
+      saved: 250,
+      remaining: 750,
+      progress: 25,
+      targetLabel: "2026-08",
+    },
+  ]);
+});
+
+test("buildReviewSummary tracks pending review counts and dollars", () => {
+  const transactions = [
+    hydrateTransaction({
+      id: "1",
+      date: "2026-04-01",
+      description: "Trader Joe's",
+      merchant: "Trader Joe's",
+      merchantKey: "trader joe's",
+      institution: "Card",
+      amount: -45,
+      category: "Groceries",
+      reviewed: false,
+    }),
+    hydrateTransaction({
+      id: "2",
+      date: "2026-04-02",
+      description: "Payroll",
+      merchant: "Payroll",
+      merchantKey: "payroll",
+      institution: "Checking",
+      amount: 2000,
+      category: "Income",
+      reviewed: true,
+    }),
+    hydrateTransaction({
+      id: "3",
+      date: "2026-04-03",
+      description: "Coffee",
+      merchant: "Blue Bottle",
+      merchantKey: "blue bottle",
+      institution: "Card",
+      amount: -6.5,
+      category: "Coffee",
+      reviewed: false,
+    }),
+  ];
+
+  const summary = buildReviewSummary({
+    transactions,
+    isMoneyMovement: (transaction) => transaction.isTransfer,
+  });
+
+  assert.deepEqual(summary, {
+    totalCount: 3,
+    reviewedCount: 1,
+    pendingCount: 2,
+    pendingOutflows: 51.5,
+    pendingInflows: 0,
+    reviewedRate: 33.33333333333333,
+  });
+});
+
+test("buildMerchantInsights compares this month against the prior month", () => {
+  const transactions = [
+    hydrateTransaction({
+      id: "1",
+      date: "2026-03-02",
+      description: "Trader Joe's",
+      merchant: "Trader Joe's",
+      merchantKey: "trader joe's",
+      institution: "Card",
+      amount: -80,
+      category: "Groceries",
+    }),
+    hydrateTransaction({
+      id: "2",
+      date: "2026-04-02",
+      description: "Trader Joe's",
+      merchant: "Trader Joe's",
+      merchantKey: "trader joe's",
+      institution: "Card",
+      amount: -120,
+      category: "Groceries",
+    }),
+    hydrateTransaction({
+      id: "3",
+      date: "2026-04-10",
+      description: "Blue Bottle",
+      merchant: "Blue Bottle",
+      merchantKey: "blue bottle",
+      institution: "Card",
+      amount: -15,
+      category: "Coffee",
+    }),
+  ];
+
+  const insights = buildMerchantInsights({
+    transactions,
+    month: "2026-04",
+    isMoneyMovement: (transaction) => transaction.isTransfer,
+  });
+
+  assert.deepEqual(insights, [
+    {
+      merchant: "Trader Joe's",
+      amount: 120,
+      count: 1,
+      previousAmount: 80,
+      changeAmount: 40,
+      changePercent: 50,
+    },
+    {
+      merchant: "Blue Bottle",
+      amount: 15,
+      count: 1,
+      previousAmount: 0,
+      changeAmount: 15,
+      changePercent: 100,
+    },
+  ]);
 });
 
 test("parseLedgerPayload rejects non-ledger payloads without transactions", () => {

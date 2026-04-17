@@ -60,6 +60,11 @@ function buildFlagCell(transaction, onEditSplit) {
   text.textContent = buildFlagLabel(transaction);
   cell.appendChild(text);
 
+  const reviewBadge = document.createElement("div");
+  reviewBadge.className = `review-badge ${transaction.reviewed ? "reviewed" : "pending"}`;
+  reviewBadge.textContent = transaction.reviewed ? "Reviewed" : "Needs review";
+  cell.appendChild(reviewBadge);
+
   const splitButton = document.createElement("button");
   splitButton.className = "ghost-button small-button";
   splitButton.type = "button";
@@ -178,6 +183,68 @@ export function renderSummary({ elements, transactions, isMoneyMovement, getCate
   elements.summaryList.appendChild(fragment);
 }
 
+export function renderReviewSummary({ elements, summary, formatCurrencyValue }) {
+  elements.reviewSummary.innerHTML = "";
+  if (!summary.totalCount) {
+    elements.reviewSummary.innerHTML = `<div class="empty-state">Import transactions to build a review queue.</div>`;
+    return;
+  }
+
+  const cards = [
+    { label: "Needs review", amount: String(summary.pendingCount), detail: `${summary.reviewedCount} already reviewed` },
+    { label: "Pending outflows", amount: formatCurrencyValue(summary.pendingOutflows), detail: `${summary.pendingCount} transactions still to review` },
+    { label: "Review rate", amount: `${Math.round(summary.reviewedRate)}%`, detail: `${summary.reviewedCount} of ${summary.totalCount} reviewed` },
+  ];
+
+  const fragment = document.createDocumentFragment();
+  cards.forEach((cardData) => {
+    const card = document.createElement("article");
+    card.className = "mini-card";
+    card.innerHTML = `
+      <div>
+        <strong>${escapeHtml(cardData.label)}</strong>
+        <p>${escapeHtml(cardData.detail)}</p>
+      </div>
+      <div class="mini-card-value">
+        <strong>${escapeHtml(cardData.amount)}</strong>
+      </div>
+    `;
+    fragment.appendChild(card);
+  });
+  elements.reviewSummary.appendChild(fragment);
+}
+
+export function renderMerchantInsights({ elements, merchantRows, formatCurrencyValue }) {
+  elements.merchantInsightsList.innerHTML = "";
+  if (!merchantRows.length) {
+    elements.merchantInsightsEmpty.hidden = false;
+    return;
+  }
+
+  elements.merchantInsightsEmpty.hidden = true;
+  const fragment = document.createDocumentFragment();
+  merchantRows.forEach((merchant) => {
+    const item = document.createElement("article");
+    item.className = "mini-card";
+    const trendLabel =
+      merchant.previousAmount > 0
+        ? `${merchant.changeAmount >= 0 ? "+" : "-"}${formatCurrencyValue(Math.abs(merchant.changeAmount))} vs last month`
+        : "New this month";
+    item.innerHTML = `
+      <div>
+        <strong>${escapeHtml(merchant.merchant)}</strong>
+        <p>${merchant.count} transaction${merchant.count === 1 ? "" : "s"} · ${escapeHtml(trendLabel)}</p>
+      </div>
+      <div class="mini-card-value">
+        <strong>${formatCurrencyValue(merchant.amount)}</strong>
+        <span>${merchant.previousAmount > 0 ? `${Math.round(merchant.changePercent)}% change` : "No previous month baseline"}</span>
+      </div>
+    `;
+    fragment.appendChild(item);
+  });
+  elements.merchantInsightsList.appendChild(fragment);
+}
+
 export function renderRules({ elements, rules, onRemoveRule }) {
   elements.rulesList.innerHTML = "";
   if (!rules.length) {
@@ -238,10 +305,14 @@ export function renderBudgets({
   elements,
   budgetMonth,
   budgetRows,
+  budgetSummary,
   formatMonthLabel,
   formatCurrencyValue,
 }) {
-  elements.budgetCaption.textContent = `Targets for ${formatMonthLabel(budgetMonth)}`;
+  const readyLabel = budgetSummary.readyToAssign >= 0 ? "Ready to assign" : "Overassigned";
+  elements.budgetCaption.textContent = `${readyLabel} ${formatCurrencyValue(Math.abs(budgetSummary.readyToAssign))} · Assigned ${formatCurrencyValue(
+    budgetSummary.assigned,
+  )} · Available ${formatCurrencyValue(budgetSummary.available)}${budgetSummary.carried > 0 ? ` · Carryover ${formatCurrencyValue(budgetSummary.carried)}` : ""}`;
   elements.budgetList.innerHTML = "";
 
   if (!budgetRows.length) {
@@ -256,18 +327,32 @@ export function renderBudgets({
     const card = document.createElement("article");
     card.className = "budget-card";
     const safePercent = Math.max(0, Math.min(row.percentUsed, 100));
-    const statusClass = row.remaining < 0 ? "over" : "under";
+    const statusClass = row.available < 0 ? "over" : "under";
     card.innerHTML = `
       <div class="budget-top">
         <div>
           <strong>${escapeHtml(row.category)}</strong>
-          <p>${formatCurrencyValue(row.spent)} spent of ${formatCurrencyValue(row.budget || 0)}</p>
+          <p>${formatCurrencyValue(row.activity)} activity · ${formatCurrencyValue(row.carryover)} carryover</p>
         </div>
-        <span class="budget-remaining ${statusClass}">${row.remaining >= 0 ? "Left" : "Over"} ${formatCurrencyValue(Math.abs(row.remaining))}</span>
+        <span class="budget-remaining ${statusClass}">${row.available >= 0 ? "Available" : "Overspent"} ${formatCurrencyValue(Math.abs(row.available))}</span>
+      </div>
+      <div class="budget-stats">
+        <div>
+          <span>Assigned</span>
+          <strong>${formatCurrencyValue(row.assigned)}</strong>
+        </div>
+        <div>
+          <span>Activity</span>
+          <strong>${formatCurrencyValue(row.activity)}</strong>
+        </div>
+        <div>
+          <span>Available</span>
+          <strong>${formatCurrencyValue(row.available)}</strong>
+        </div>
       </div>
       <label class="budget-input-wrap">
-        Monthly budget
-        <input class="budget-input" data-category="${escapeHtml(row.category)}" type="number" min="0" step="0.01" value="${row.budget || ""}" placeholder="0.00" />
+        Assign this month
+        <input class="budget-input" data-category="${escapeHtml(row.category)}" type="number" min="0" step="0.01" value="${row.assigned || ""}" placeholder="0.00" />
       </label>
       <div class="budget-bar-shell">
         <div class="budget-bar ${statusClass}" style="width:${safePercent}%"></div>
@@ -350,12 +435,14 @@ export function renderTransactions({
   formatDateValue,
   onCategoryChange,
   onEditNote,
+  onEditTags,
+  onToggleReviewed,
   onEditSplit,
 }) {
   elements.transactionsBody.innerHTML = "";
   if (!visibleTransactions.length) {
     const row = document.createElement("tr");
-    row.innerHTML = `<td colspan="9">No transactions match the current filters yet.</td>`;
+    row.innerHTML = `<td colspan="11">No transactions match the current filters yet.</td>`;
     elements.transactionsBody.appendChild(row);
     return;
   }
@@ -388,6 +475,16 @@ export function renderTransactions({
 
     row.appendChild(buildFlagCell(transaction, onEditSplit));
 
+    const reviewCell = document.createElement("td");
+    reviewCell.className = "review-cell";
+    const reviewButton = document.createElement("button");
+    reviewButton.className = transaction.reviewed ? "ghost-button small-button" : "primary-button small-button";
+    reviewButton.type = "button";
+    reviewButton.textContent = transaction.reviewed ? "Reviewed" : "Mark reviewed";
+    reviewButton.addEventListener("click", () => onToggleReviewed(transaction));
+    reviewCell.appendChild(reviewButton);
+    row.appendChild(reviewCell);
+
     const noteCell = document.createElement("td");
     noteCell.className = "note-cell";
     const notePreview = document.createElement("div");
@@ -402,10 +499,69 @@ export function renderTransactions({
     noteCell.appendChild(noteButton);
     row.appendChild(noteCell);
 
+    const tagsCell = document.createElement("td");
+    tagsCell.className = "tags-cell";
+    const tagsPreview = document.createElement("div");
+    tagsPreview.className = "tags-preview";
+    tagsPreview.textContent = transaction.tags?.length ? transaction.tags.join(" · ") : "No tags";
+    tagsCell.appendChild(tagsPreview);
+    const tagsButton = document.createElement("button");
+    tagsButton.className = "ghost-button small-button";
+    tagsButton.type = "button";
+    tagsButton.textContent = transaction.tags?.length ? "Edit tags" : "Add tags";
+    tagsButton.addEventListener("click", () => onEditTags(transaction));
+    tagsCell.appendChild(tagsButton);
+    row.appendChild(tagsCell);
+
     const amountCell = buildCell(formatCurrencyValue(transaction.amount), "amount-cell");
     amountCell.classList.add(transaction.amount >= 0 ? "positive" : "negative");
     row.appendChild(amountCell);
     fragment.appendChild(row);
   });
   elements.transactionsBody.appendChild(fragment);
+}
+
+export function renderGoals({ elements, goalRows, formatCurrencyValue, onEditGoal, onRemoveGoal }) {
+  elements.goalsList.innerHTML = "";
+  if (!goalRows.length) {
+    elements.goalsEmpty.hidden = false;
+    return;
+  }
+
+  elements.goalsEmpty.hidden = true;
+  const fragment = document.createDocumentFragment();
+  goalRows.forEach((goal) => {
+    const card = document.createElement("article");
+    card.className = "goal-card";
+    const safePercent = Math.max(0, Math.min(goal.progress, 100));
+    card.innerHTML = `
+      <div class="goal-top">
+        <div>
+          <strong>${escapeHtml(goal.name)}</strong>
+          <p>${escapeHtml(goal.category)} · target ${escapeHtml(goal.targetLabel)}</p>
+        </div>
+        <span>${formatCurrencyValue(goal.saved)} / ${formatCurrencyValue(goal.targetAmount)}</span>
+      </div>
+      <div class="budget-bar-shell">
+        <div class="budget-bar" style="width:${safePercent}%"></div>
+      </div>
+      <p class="goal-detail">${formatCurrencyValue(goal.remaining)} left to fully fund</p>
+    `;
+    const actionRow = document.createElement("div");
+    actionRow.className = "goal-actions";
+    const editButton = document.createElement("button");
+    editButton.className = "ghost-button small-button";
+    editButton.type = "button";
+    editButton.textContent = "Edit goal";
+    editButton.addEventListener("click", () => onEditGoal(goal));
+    const removeButton = document.createElement("button");
+    removeButton.className = "ghost-button small-button";
+    removeButton.type = "button";
+    removeButton.textContent = "Remove";
+    removeButton.addEventListener("click", () => onRemoveGoal(goal));
+    actionRow.append(editButton, removeButton);
+    card.appendChild(actionRow);
+    fragment.appendChild(card);
+  });
+  elements.goalsList.appendChild(fragment);
 }

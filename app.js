@@ -13,8 +13,12 @@ import {
   applyLearnedCategory as applyLearnedCategoryByMerchant,
   buildAccountStats,
   buildBudgetRows as buildBudgetRowsFromTransactions,
+  buildBudgetSummary,
+  buildGoalRows,
   buildLedgerPayload,
+  buildMerchantInsights,
   buildMonthlySeries,
+  buildReviewSummary,
   buildSearchText,
   buildSpendingPlan as buildSpendingPlanCards,
   buildTransactionId,
@@ -39,9 +43,12 @@ import {
   formatMonth,
   renderAccountsAndTransfers,
   renderBudgets,
+  renderGoals,
+  renderMerchantInsights,
   renderMetrics,
   renderMonthFilter,
   renderRecurring,
+  renderReviewSummary,
   renderRules,
   renderSpendingPlan,
   renderSummary,
@@ -54,6 +61,7 @@ const IMPORT_PRESET_KEY = "ledger-garden-import-presets-v2";
 const MERCHANT_RULES_KEY = "ledger-garden-merchant-rules-v2";
 const RULES_KEY = "ledger-garden-rules-v1";
 const BUDGETS_KEY = "ledger-garden-budgets-v1";
+const GOALS_KEY = "pocket-ledger-goals-v1";
 const SEARCH_DEBOUNCE_MS = 120;
 const LEDGER_VERSION = 2;
 
@@ -70,6 +78,7 @@ const state = {
   merchantRules: {},
   rules: [],
   budgets: {},
+  goals: [],
   searchTimer: null,
   toastTimer: null,
   dialogResolver: null,
@@ -148,6 +157,13 @@ const elements = {
   accountsEmpty: document.querySelector("#accounts-empty"),
   accountList: document.querySelector("#account-list"),
   transferSummary: document.querySelector("#transfer-summary"),
+  goalsEmpty: document.querySelector("#goals-empty"),
+  goalsList: document.querySelector("#goals-list"),
+  addGoalButton: document.querySelector("#add-goal-button"),
+  reviewSummary: document.querySelector("#review-summary"),
+  merchantInsightsEmpty: document.querySelector("#merchant-insights-empty"),
+  merchantInsightsList: document.querySelector("#merchant-insights-list"),
+  markVisibleReviewedButton: document.querySelector("#mark-visible-reviewed-button"),
   rulePatternInput: document.querySelector("#rule-pattern-input"),
   ruleCategorySelect: document.querySelector("#rule-category-select"),
   addRuleButton: document.querySelector("#add-rule-button"),
@@ -306,6 +322,8 @@ function bindEvents() {
   elements.clearDataButton.addEventListener("click", clearAllData);
   elements.rerunCategoriesButton.addEventListener("click", rerunCategories);
   elements.addRuleButton.addEventListener("click", addRuleFromInputs);
+  elements.addGoalButton.addEventListener("click", addGoalFromDialog);
+  elements.markVisibleReviewedButton.addEventListener("click", markVisibleTransactionsReviewed);
   elements.saveBudgetsButton.addEventListener("click", saveBudgetsFromInputs);
   elements.clearBudgetsButton.addEventListener("click", clearBudgetsForActiveMonth);
   elements.copyBudgetsButton.addEventListener("click", copyBudgetsFromPreviousMonth);
@@ -705,7 +723,7 @@ function mergeTransactions(importedTransactions) {
 async function clearAllData() {
   const result = await promptForConfirmation({
     title: "Clear all imported data?",
-    description: "This removes transactions, saved budgets, rules, presets, and local browser storage for Pocket Ledger on this device.",
+    description: "This removes transactions, saved budgets, goals, rules, presets, and local browser storage for Pocket Ledger on this device.",
     confirmLabel: "Clear everything",
     tone: "danger",
   });
@@ -720,6 +738,7 @@ async function clearAllData() {
   state.merchantRules = {};
   state.rules = [];
   state.budgets = {};
+  state.goals = [];
   elements.searchInput.value = "";
   elements.loadLedgerInput.value = "";
   elements.mappingPanel.classList.add("hidden");
@@ -728,6 +747,7 @@ async function clearAllData() {
   window.localStorage.removeItem(MERCHANT_RULES_KEY);
   window.localStorage.removeItem(RULES_KEY);
   window.localStorage.removeItem(BUDGETS_KEY);
+  window.localStorage.removeItem(GOALS_KEY);
   render();
   showToast("Pocket Ledger has been reset on this browser.", "success");
 }
@@ -771,6 +791,14 @@ function loadSavedData() {
     console.warn("Unable to load budgets.", error);
     state.budgets = {};
   }
+
+  try {
+    const savedGoals = JSON.parse(window.localStorage.getItem(GOALS_KEY) || "[]");
+    state.goals = Array.isArray(savedGoals) ? savedGoals : [];
+  } catch (error) {
+    console.warn("Unable to load goals.", error);
+    state.goals = [];
+  }
 }
 
 function saveData() {
@@ -779,6 +807,7 @@ function saveData() {
   window.localStorage.setItem(MERCHANT_RULES_KEY, JSON.stringify(state.merchantRules));
   window.localStorage.setItem(RULES_KEY, JSON.stringify(state.rules));
   window.localStorage.setItem(BUDGETS_KEY, JSON.stringify(state.budgets));
+  window.localStorage.setItem(GOALS_KEY, JSON.stringify(state.goals));
 }
 
 function refreshDerivedState() {
@@ -808,7 +837,28 @@ function render() {
   const monthlyTransactions = getFilteredTransactions({ search: false });
   const budgetMonth = getBudgetMonth();
   const budgetMonthTransactions = getTransactionsForMonth(budgetMonth);
-  const budgetRows = buildBudgetRows(budgetMonthTransactions, budgetMonth);
+  const reviewSummary = buildReviewSummary({
+    transactions: monthlyTransactions,
+    isMoneyMovement,
+  });
+  const merchantInsights = buildMerchantInsights({
+    transactions: state.transactions,
+    month: budgetMonth,
+    isMoneyMovement,
+  });
+  const budgetRows = buildBudgetRows(state.transactions, budgetMonth);
+  const budgetSummary = buildBudgetSummary({
+    month: budgetMonth,
+    transactions: state.transactions,
+    budgetsByMonth: state.budgets,
+    budgetRows,
+    isMoneyMovement,
+  });
+  const goalRows = buildGoalRows({
+    goals: state.goals,
+    budgetRows,
+    formatMonthLabel: (value) => formatMonth(value, monthFormatter),
+  });
   const spendingPlan = buildSpendingPlan(budgetMonthTransactions);
   renderMetrics({
     state,
@@ -831,10 +881,21 @@ function render() {
     getCategoryBreakdown,
     formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
   });
+  renderReviewSummary({
+    elements,
+    summary: reviewSummary,
+    formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
+  });
+  renderMerchantInsights({
+    elements,
+    merchantRows: merchantInsights,
+    formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
+  });
   renderBudgets({
     elements,
     budgetMonth,
     budgetRows,
+    budgetSummary,
     formatMonthLabel: (value) => formatMonth(value, monthFormatter),
     formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
   });
@@ -842,6 +903,13 @@ function render() {
     elements,
     planCards: spendingPlan,
     formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
+  });
+  renderGoals({
+    elements,
+    goalRows,
+    formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
+    onEditGoal: editGoalFromDialog,
+    onRemoveGoal: removeGoal,
   });
   renderRules({
     elements,
@@ -892,6 +960,8 @@ function render() {
       render();
     },
     onEditNote: editTransactionNote,
+    onEditTags: editTransactionTags,
+    onToggleReviewed: toggleTransactionReviewed,
     onEditSplit: editTransactionSplit,
   });
 }
@@ -929,10 +999,10 @@ function getBudgetsForMonth(month) {
 }
 
 function buildBudgetRows(transactions, month) {
-  const monthBudgets = getBudgetsForMonth(month);
   return buildBudgetRowsFromTransactions({
+    month,
     transactions,
-    monthBudgets,
+    budgetsByMonth: state.budgets,
     budgetCategories,
     isMoneyMovement,
     getCategoryBreakdown,
@@ -999,7 +1069,7 @@ function exportFilteredTransactions() {
   }
 
   const rows = [
-    ["Date", "Description", "Merchant", "Institution", "Account", "Category", "Flags", "Note", "Amount"],
+    ["Date", "Description", "Merchant", "Institution", "Account", "Category", "Flags", "Reviewed", "Note", "Tags", "Amount"],
     ...visibleTransactions.map((transaction) => [
       transaction.date,
       transaction.description,
@@ -1008,7 +1078,9 @@ function exportFilteredTransactions() {
       transaction.account,
       transaction.category,
       buildFlagLabel(transaction),
+      transaction.reviewed ? "Yes" : "No",
       transaction.note || "",
+      (transaction.tags || []).join(" | "),
       transaction.amount.toFixed(2),
     ]),
   ];
@@ -1028,6 +1100,7 @@ function saveLedgerFile() {
     merchantRules: state.merchantRules,
     rules: state.rules,
     budgets: state.budgets,
+    goals: state.goals,
   });
   downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" }), `pocket-ledger-ledger-${new Date().toISOString().slice(0, 10)}.json`);
   showToast("Ledger JSON downloaded.", "success");
@@ -1047,6 +1120,7 @@ function loadLedgerFile(event) {
       state.merchantRules = payload.merchantRules;
       state.rules = payload.rules;
       state.budgets = payload.budgets;
+      state.goals = payload.goals;
       state.monthFilter = "all";
       state.searchQuery = "";
       state.parsedImport = null;
@@ -1111,14 +1185,14 @@ function saveBudgetsFromInputs() {
   });
 
   if (!Object.keys(nextBudgets).length) {
-    showToast("Add at least one positive budget amount for this month.", "error");
+    showToast("Assign at least one positive amount for this month.", "error");
     return;
   }
 
   state.budgets[budgetMonth] = nextBudgets;
   saveData();
   render();
-  showToast(`Saved budgets for ${formatMonth(budgetMonth, monthFormatter)}.`, "success");
+  showToast(`Saved assigned amounts for ${formatMonth(budgetMonth, monthFormatter)}.`, "success");
 }
 
 function copyBudgetsFromPreviousMonth() {
@@ -1137,7 +1211,7 @@ function copyBudgetsFromPreviousMonth() {
   saveData();
   render();
   showToast(
-    `Copied budgets from ${formatMonth(previousMonth, monthFormatter)} into ${formatMonth(budgetMonth, monthFormatter)}.`,
+    `Copied assigned amounts from ${formatMonth(previousMonth, monthFormatter)} into ${formatMonth(budgetMonth, monthFormatter)}.`,
     "success",
   );
 }
@@ -1145,14 +1219,14 @@ function copyBudgetsFromPreviousMonth() {
 async function clearBudgetsForActiveMonth() {
   const budgetMonth = getBudgetMonth();
   if (!Object.keys(getBudgetsForMonth(budgetMonth)).length) {
-    showToast(`There are no saved budgets for ${formatMonth(budgetMonth, monthFormatter)} yet.`, "error");
+    showToast(`There are no saved assigned amounts for ${formatMonth(budgetMonth, monthFormatter)} yet.`, "error");
     return;
   }
 
   const result = await promptForConfirmation({
-    title: `Clear budgets for ${formatMonth(budgetMonth, monthFormatter)}?`,
-    description: "This only removes the saved targets for the selected month.",
-    confirmLabel: "Clear budgets",
+    title: `Clear assigned amounts for ${formatMonth(budgetMonth, monthFormatter)}?`,
+    description: "This only removes the saved assigned amounts for the selected month.",
+    confirmLabel: "Clear assigned amounts",
   });
   if (!result.confirmed) {
     return;
@@ -1161,7 +1235,7 @@ async function clearBudgetsForActiveMonth() {
   delete state.budgets[budgetMonth];
   saveData();
   render();
-  showToast(`Cleared budgets for ${formatMonth(budgetMonth, monthFormatter)}.`, "success");
+  showToast(`Cleared assigned amounts for ${formatMonth(budgetMonth, monthFormatter)}.`, "success");
 }
 
 async function editTransactionNote(transaction) {
@@ -1182,6 +1256,134 @@ async function editTransactionNote(transaction) {
   saveData();
   render();
   showToast(transaction.note ? "Note saved." : "Note cleared.", "success");
+}
+
+async function editTransactionTags(transaction) {
+  const result = await promptForText({
+    title: "Transaction tags",
+    description: "Use comma-separated tags like vacation, reimbursable, or tax docs.",
+    confirmLabel: "Save tags",
+    fieldLabel: "Tags",
+    value: (transaction.tags || []).join(", "),
+    placeholder: "vacation, shared, tax docs",
+  });
+  if (!result.confirmed) {
+    return;
+  }
+
+  transaction.tags = String(result.value || "")
+    .split(",")
+    .map((tag) => cleanText(tag))
+    .filter(Boolean);
+  refreshDerivedState();
+  saveData();
+  render();
+  showToast(transaction.tags.length ? "Tags saved." : "Tags cleared.", "success");
+}
+
+function toggleTransactionReviewed(transaction) {
+  transaction.reviewed = !transaction.reviewed;
+  refreshDerivedState();
+  saveData();
+  render();
+  showToast(transaction.reviewed ? "Marked as reviewed." : "Marked for review.", "success");
+}
+
+function markVisibleTransactionsReviewed() {
+  const visibleTransactions = getFilteredTransactions({ search: true }).filter((transaction) => !transaction.reviewed);
+  if (!visibleTransactions.length) {
+    showToast("There are no visible transactions that still need review.", "error");
+    return;
+  }
+
+  visibleTransactions.forEach((transaction) => {
+    transaction.reviewed = true;
+  });
+  refreshDerivedState();
+  saveData();
+  render();
+  showToast(`Marked ${visibleTransactions.length} visible transaction${visibleTransactions.length === 1 ? "" : "s"} as reviewed.`, "success");
+}
+
+async function addGoalFromDialog() {
+  const result = await promptForText({
+    title: "Add savings goal",
+    description: "Use Name | Category | Target amount | Target month. Example: Emergency fund | Shopping | 1500 | 2026-12",
+    confirmLabel: "Add goal",
+    fieldLabel: "Goal details",
+    placeholder: "Vacation fund | Travel | 1200 | 2026-08",
+  });
+  if (!result.confirmed) {
+    return;
+  }
+
+  const goal = parseGoalInput(result.value);
+  if (!goal) {
+    showToast("Use Name | Category | Target amount | Target month.", "error");
+    return;
+  }
+
+  state.goals.push(goal);
+  saveData();
+  render();
+  showToast("Goal added.", "success");
+}
+
+async function editGoalFromDialog(goal) {
+  const result = await promptForText({
+    title: "Edit savings goal",
+    description: "Use Name | Category | Target amount | Target month.",
+    confirmLabel: "Save goal",
+    fieldLabel: "Goal details",
+    value: `${goal.name} | ${goal.category} | ${goal.targetAmount} | ${goal.targetMonth}`,
+  });
+  if (!result.confirmed) {
+    return;
+  }
+
+  const nextGoal = parseGoalInput(result.value, goal.id);
+  if (!nextGoal) {
+    showToast("Use Name | Category | Target amount | Target month.", "error");
+    return;
+  }
+
+  state.goals = state.goals.map((current) => (current.id === goal.id ? nextGoal : current));
+  saveData();
+  render();
+  showToast("Goal updated.", "success");
+}
+
+async function removeGoal(goal) {
+  const result = await promptForConfirmation({
+    title: `Remove ${goal.name}?`,
+    description: "This only removes the goal card. It does not change your assigned amounts.",
+    confirmLabel: "Remove goal",
+  });
+  if (!result.confirmed) {
+    return;
+  }
+
+  state.goals = state.goals.filter((current) => current.id !== goal.id);
+  saveData();
+  render();
+  showToast("Goal removed.", "success");
+}
+
+function parseGoalInput(value, existingId = "") {
+  const [name, category, targetAmount, targetMonth] = String(value || "")
+    .split("|")
+    .map((part) => cleanText(part));
+  const amount = Number.parseFloat(targetAmount || "");
+  if (!name || !category || !targetMonth || !Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+  return {
+    id: existingId || `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name,
+    category,
+    targetAmount: Number(amount.toFixed(2)),
+    targetMonth,
+  };
 }
 
 async function editTransactionSplit(transaction) {

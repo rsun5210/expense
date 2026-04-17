@@ -882,6 +882,30 @@ textarea {
   gap: 12px;
 }
 
+.budget-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.44);
+  border: 1px solid rgba(19, 32, 58, 0.06);
+}
+
+.budget-stats span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.budget-stats strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1rem;
+}
+
 .budget-remaining.over {
   color: var(--danger);
   font-weight: 700;
@@ -890,6 +914,11 @@ textarea {
 .budget-remaining.under {
   color: var(--accent-deep);
   font-weight: 700;
+}
+
+.budget-caption {
+  color: var(--muted-strong);
+  line-height: 1.5;
 }
 
 .plan-card strong {
@@ -932,8 +961,27 @@ textarea {
   font-weight: 700;
 }
 
+.review-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.review-badge.reviewed {
+  background: rgba(23, 192, 135, 0.12);
+  color: var(--accent-deep);
+}
+
+.review-badge.pending {
+  background: rgba(255, 180, 77, 0.16);
+  color: #9b6400;
+}
+
 .note-cell {
-  min-width: 220px;
+  min-width: 180px;
 }
 
 .note-preview {
@@ -943,8 +991,55 @@ textarea {
   white-space: normal;
 }
 
+.tags-cell,
+.review-cell {
+  min-width: 132px;
+}
+
+.tags-preview {
+  max-width: 220px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.goal-card {
+  display: grid;
+  gap: 12px;
+  padding: 15px;
+  border-radius: 20px;
+  background: rgba(238, 243, 248, 0.9);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 20px rgba(8, 17, 31, 0.04);
+}
+
+.goal-top,
+.goal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.goal-top p,
+.goal-detail {
+  margin: 0;
+  color: var(--muted);
+}
+
+.transactions-panel table {
+  min-width: 1180px;
+  table-layout: fixed;
+}
+
+.transactions-panel th,
+.transactions-panel td {
+  overflow-wrap: anywhere;
+}
+
 .table-wrap {
   overflow: auto;
+  max-width: 100%;
   border-radius: 20px;
   border: 1px solid var(--line);
   background:
@@ -1406,6 +1501,10 @@ tr:last-child td {
 
   .metric-card strong {
     font-size: 1.55rem;
+  }
+
+  .budget-stats {
+    grid-template-columns: 1fr;
   }
 
   .transactions-toolbar .search-field {
