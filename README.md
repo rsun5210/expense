@@ -1,6 +1,6 @@
-# Ledger Garden
+# Pocket Ledger
 
-Ledger Garden is a local-first expense tracker for importing bank and credit-card statement CSVs.
+Pocket Ledger is a local-first expense tracker for importing bank and credit-card statement CSVs.
 
 ## What it does
 

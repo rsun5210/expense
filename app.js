@@ -652,7 +652,7 @@ async function importSampleStatement() {
       parsedImport,
       mapping: {
         ...buildSuggestedMapping(parsedImport),
-        institution: "Ledger Garden Sample",
+        institution: "Pocket Ledger Sample",
       },
     });
   } catch (error) {
@@ -705,7 +705,7 @@ function mergeTransactions(importedTransactions) {
 async function clearAllData() {
   const result = await promptForConfirmation({
     title: "Clear all imported data?",
-    description: "This removes transactions, saved budgets, rules, presets, and local browser storage for Ledger Garden on this device.",
+    description: "This removes transactions, saved budgets, rules, presets, and local browser storage for Pocket Ledger on this device.",
     confirmLabel: "Clear everything",
     tone: "danger",
   });
@@ -729,7 +729,7 @@ async function clearAllData() {
   window.localStorage.removeItem(RULES_KEY);
   window.localStorage.removeItem(BUDGETS_KEY);
   render();
-  showToast("Ledger Garden has been reset on this browser.", "success");
+  showToast("Pocket Ledger has been reset on this browser.", "success");
 }
 
 function loadSavedData() {
@@ -1015,7 +1015,7 @@ function exportFilteredTransactions() {
 
   downloadBlob(
     new Blob([rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n")], { type: "text/csv;charset=utf-8" }),
-    `ledger-garden-${state.monthFilter === "all" ? "all-months" : state.monthFilter}.csv`,
+    `pocket-ledger-${state.monthFilter === "all" ? "all-months" : state.monthFilter}.csv`,
   );
 }
 
@@ -1029,7 +1029,7 @@ function saveLedgerFile() {
     rules: state.rules,
     budgets: state.budgets,
   });
-  downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" }), `ledger-garden-ledger-${new Date().toISOString().slice(0, 10)}.json`);
+  downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" }), `pocket-ledger-ledger-${new Date().toISOString().slice(0, 10)}.json`);
   showToast("Ledger JSON downloaded.", "success");
 }
 
@@ -1057,7 +1057,7 @@ function loadLedgerFile(event) {
       showToast("Ledger file loaded successfully.", "success");
     } catch (error) {
       console.error("Unable to load ledger file.", error);
-      showToast("That file does not look like a valid Ledger Garden ledger.", "error");
+      showToast("That file does not look like a valid Pocket Ledger ledger.", "error");
     } finally {
       elements.loadLedgerInput.value = "";
     }
