@@ -60,11 +60,6 @@ function buildFlagCell(transaction, onEditSplit) {
   text.textContent = buildFlagLabel(transaction);
   cell.appendChild(text);
 
-  const reviewBadge = document.createElement("div");
-  reviewBadge.className = `review-badge ${transaction.reviewed ? "reviewed" : "pending"}`;
-  reviewBadge.textContent = transaction.reviewed ? "Reviewed" : "Needs review";
-  cell.appendChild(reviewBadge);
-
   const splitButton = document.createElement("button");
   splitButton.className = "ghost-button small-button";
   splitButton.type = "button";
@@ -183,7 +178,7 @@ export function renderSummary({ elements, transactions, isMoneyMovement, getCate
   elements.summaryList.appendChild(fragment);
 }
 
-export function renderReviewSummary({ elements, summary, formatCurrencyValue }) {
+export function renderReviewSummary({ elements, summary, formatCurrencyValue, onSelectFilter }) {
   elements.reviewSummary.innerHTML = "";
   if (!summary.totalCount) {
     elements.reviewSummary.innerHTML = `<div class="empty-state">Import transactions to build a review queue.</div>`;
@@ -191,15 +186,16 @@ export function renderReviewSummary({ elements, summary, formatCurrencyValue }) 
   }
 
   const cards = [
-    { label: "Needs review", amount: String(summary.pendingCount), detail: `${summary.reviewedCount} already reviewed` },
-    { label: "Pending outflows", amount: formatCurrencyValue(summary.pendingOutflows), detail: `${summary.pendingCount} transactions still to review` },
-    { label: "Review rate", amount: `${Math.round(summary.reviewedRate)}%`, detail: `${summary.reviewedCount} of ${summary.totalCount} reviewed` },
+    { label: "Needs review", amount: String(summary.pendingCount), detail: `${summary.reviewedCount} already reviewed`, filter: "needs-review" },
+    { label: "Pending outflows", amount: formatCurrencyValue(summary.pendingOutflows), detail: `${summary.pendingCount} transactions still to review`, filter: "needs-review" },
+    { label: "Review rate", amount: `${Math.round(summary.reviewedRate)}%`, detail: `${summary.reviewedCount} of ${summary.totalCount} reviewed`, filter: "all" },
   ];
 
   const fragment = document.createDocumentFragment();
   cards.forEach((cardData) => {
-    const card = document.createElement("article");
-    card.className = "mini-card";
+    const card = document.createElement("button");
+    card.className = "mini-card review-card";
+    card.type = "button";
     card.innerHTML = `
       <div>
         <strong>${escapeHtml(cardData.label)}</strong>
@@ -209,6 +205,7 @@ export function renderReviewSummary({ elements, summary, formatCurrencyValue }) 
         <strong>${escapeHtml(cardData.amount)}</strong>
       </div>
     `;
+    card.addEventListener("click", () => onSelectFilter(cardData.filter));
     fragment.appendChild(card);
   });
   elements.reviewSummary.appendChild(fragment);
@@ -286,14 +283,26 @@ export function renderRecurring({ elements, recurringSeries, formatCurrencyValue
   recurringSeries.forEach((series) => {
     const item = document.createElement("article");
     item.className = "mini-card";
+    const dueLabel = series.nextExpectedDate ? `Likely due ${escapeHtml(series.nextExpectedDate)}` : series.frequencyLabel;
+    const today = new Date();
+    const nextDate = series.nextExpectedDate ? new Date(`${series.nextExpectedDate}T12:00:00`) : null;
+    const daysUntil = nextDate ? Math.round((nextDate - today) / (1000 * 60 * 60 * 24)) : null;
+    const urgencyLabel =
+      daysUntil === null
+        ? "Awaiting more history"
+        : daysUntil < 0
+          ? `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? "" : "s"} overdue`
+          : daysUntil === 0
+            ? "Due today"
+            : `Due in ${daysUntil} day${daysUntil === 1 ? "" : "s"}`;
     item.innerHTML = `
       <div>
         <strong>${series.label}</strong>
-        <p>${series.count} charges across ${series.monthCount} months</p>
+        <p>${series.count} charges across ${series.monthCount} months · ${dueLabel}</p>
       </div>
       <div class="mini-card-value">
         <strong>${formatCurrencyValue(series.averageAmount)}</strong>
-        <span>${series.frequencyLabel}</span>
+        <span>${escapeHtml(urgencyLabel)}</span>
       </div>
     `;
     fragment.appendChild(item);
@@ -332,7 +341,7 @@ export function renderBudgets({
       <div class="budget-top">
         <div>
           <strong>${escapeHtml(row.category)}</strong>
-          <p>${formatCurrencyValue(row.activity)} activity · ${formatCurrencyValue(row.carryover)} carryover</p>
+          <p>${formatCurrencyValue(row.activity)} activity · ${formatCurrencyValue(row.carryover)} carryover · last month ${formatCurrencyValue(row.previousAssigned)}</p>
         </div>
         <span class="budget-remaining ${statusClass}">${row.available >= 0 ? "Available" : "Overspent"} ${formatCurrencyValue(Math.abs(row.available))}</span>
       </div>
@@ -357,6 +366,7 @@ export function renderBudgets({
       <div class="budget-bar-shell">
         <div class="budget-bar ${statusClass}" style="width:${safePercent}%"></div>
       </div>
+      <p class="budget-underfunded ${row.underfunded > 0 ? "is-active" : ""}">${row.underfunded > 0 ? `Underfunded ${formatCurrencyValue(row.underfunded)}` : "Fully funded for this pattern"}</p>
     `;
     fragment.appendChild(card);
   });
@@ -375,7 +385,7 @@ export function renderSpendingPlan({ elements, planCards, formatCurrencyValue })
   const fragment = document.createDocumentFragment();
   planCards.forEach((cardData) => {
     const card = document.createElement("article");
-    card.className = "plan-card";
+    card.className = "mini-card plan-snapshot-card";
     card.innerHTML = `
       <p>${escapeHtml(cardData.label)}</p>
       <strong>${formatCurrencyValue(cardData.amount)}</strong>
@@ -416,6 +426,10 @@ export function renderAccountsAndTransfers({ elements, transactions, accountStat
   const matchedTransfers = transactions.filter((transaction) => transaction.transferMatchId).length / 2;
   const unmatchedTransfers = transactions.filter((transaction) => transaction.isTransfer && !transaction.transferMatchId).length;
   elements.transferSummary.innerHTML = `
+    <article class="transfer-card transfer-card-heading">
+      <strong>Transfer matching</strong>
+      <span>Money movement checks</span>
+    </article>
     <article class="transfer-card">
       <strong>${matchedTransfers}</strong>
       <span>matched transfer pair${matchedTransfers === 1 ? "" : "s"}</span>
@@ -538,14 +552,14 @@ export function renderGoals({ elements, goalRows, formatCurrencyValue, onEditGoa
       <div class="goal-top">
         <div>
           <strong>${escapeHtml(goal.name)}</strong>
-          <p>${escapeHtml(goal.category)} · target ${escapeHtml(goal.targetLabel)}</p>
+          <p>${escapeHtml(goal.category)} available balance · target ${escapeHtml(goal.targetLabel)}</p>
         </div>
-        <span>${formatCurrencyValue(goal.saved)} / ${formatCurrencyValue(goal.targetAmount)}</span>
+        <span>${formatCurrencyValue(goal.targetAmount)} target</span>
       </div>
       <div class="budget-bar-shell">
         <div class="budget-bar" style="width:${safePercent}%"></div>
       </div>
-      <p class="goal-detail">${formatCurrencyValue(goal.remaining)} left to fully fund</p>
+      <p class="goal-detail">${formatCurrencyValue(goal.saved)} available now · ${formatCurrencyValue(goal.remaining)} left to fully fund</p>
     `;
     const actionRow = document.createElement("div");
     actionRow.className = "goal-actions";

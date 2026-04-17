@@ -10,7 +10,6 @@ import {
   resolveAmount,
 } from "./ledger-core.mjs";
 import {
-  applyLearnedCategory as applyLearnedCategoryByMerchant,
   buildAccountStats,
   buildBudgetRows as buildBudgetRowsFromTransactions,
   buildBudgetSummary,
@@ -73,6 +72,7 @@ const state = {
   transactions: [],
   monthFilter: "all",
   searchQuery: "",
+  transactionFilter: "all",
   parsedImport: null,
   importPresets: {},
   merchantRules: {},
@@ -142,7 +142,7 @@ const elements = {
   metricMonth: document.querySelector("#metric-month"),
   saveBudgetsButton: document.querySelector("#save-budgets-button"),
   clearBudgetsButton: document.querySelector("#clear-budgets-button"),
-  copyBudgetsButton: document.querySelector("#copy-budgets-button"),
+  autoAssignBudgetsButton: document.querySelector("#auto-assign-budgets-button"),
   budgetCaption: document.querySelector("#budget-caption"),
   budgetEmpty: document.querySelector("#budget-empty"),
   budgetList: document.querySelector("#budget-list"),
@@ -164,6 +164,7 @@ const elements = {
   merchantInsightsEmpty: document.querySelector("#merchant-insights-empty"),
   merchantInsightsList: document.querySelector("#merchant-insights-list"),
   markVisibleReviewedButton: document.querySelector("#mark-visible-reviewed-button"),
+  transactionFilterButtons: [...document.querySelectorAll("[data-transaction-filter]")],
   rulePatternInput: document.querySelector("#rule-pattern-input"),
   ruleCategorySelect: document.querySelector("#rule-category-select"),
   addRuleButton: document.querySelector("#add-rule-button"),
@@ -326,7 +327,7 @@ function bindEvents() {
   elements.markVisibleReviewedButton.addEventListener("click", markVisibleTransactionsReviewed);
   elements.saveBudgetsButton.addEventListener("click", saveBudgetsFromInputs);
   elements.clearBudgetsButton.addEventListener("click", clearBudgetsForActiveMonth);
-  elements.copyBudgetsButton.addEventListener("click", copyBudgetsFromPreviousMonth);
+  elements.autoAssignBudgetsButton.addEventListener("click", autoAssignBudgetsForMonth);
   bindDropzoneEvents();
   bindDialogEvents();
   populateRuleCategorySelect();
@@ -342,6 +343,13 @@ function bindEvents() {
       state.searchQuery = event.target.value.trim().toLowerCase();
       render();
     }, SEARCH_DEBOUNCE_MS);
+  });
+
+  elements.transactionFilterButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      state.transactionFilter = button.dataset.transactionFilter || "all";
+      render();
+    });
   });
 }
 
@@ -739,6 +747,8 @@ async function clearAllData() {
   state.rules = [];
   state.budgets = {};
   state.goals = [];
+  state.searchQuery = "";
+  state.transactionFilter = "all";
   elements.searchInput.value = "";
   elements.loadLedgerInput.value = "";
   elements.mappingPanel.classList.add("hidden");
@@ -829,6 +839,10 @@ function refreshDerivedState() {
 }
 
 function render() {
+  elements.transactionFilterButtons.forEach((button) => {
+    const isActive = (button.dataset.transactionFilter || "all") === state.transactionFilter;
+    button.classList.toggle("is-active", isActive);
+  });
   renderMonthFilter({
     state,
     elements,
@@ -885,6 +899,10 @@ function render() {
     elements,
     summary: reviewSummary,
     formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
+    onSelectFilter: (filter) => {
+      state.transactionFilter = filter;
+      render();
+    },
   });
   renderMerchantInsights({
     elements,
@@ -935,7 +953,11 @@ function render() {
   });
   renderRecurring({
     elements,
-    recurringSeries: [...detectRecurringSeries(state.transactions).values()].sort((left, right) => right.count - left.count),
+    recurringSeries: [...detectRecurringSeries(state.transactions).values()].sort((left, right) => {
+      const leftDate = left.nextExpectedDate || "9999-99-99";
+      const rightDate = right.nextExpectedDate || "9999-99-99";
+      return leftDate.localeCompare(rightDate) || right.count - left.count;
+    }),
     formatCurrencyValue: (value) => formatCurrency(value, currencyFormatter),
   });
   renderAccountsAndTransfers({
@@ -952,9 +974,9 @@ function render() {
     formatDateValue: (value) => formatDate(value, dateFormatter),
     onCategoryChange: (transaction, category) => {
       clearTransactionSplits(transaction);
-      const updatedState = applyLearnedCategoryByMerchant(transaction, category, state.merchantRules, state.transactions);
-      state.merchantRules = updatedState.merchantRules;
-      state.transactions = updatedState.transactions;
+      state.transactions = state.transactions.map((current) =>
+        current.id === transaction.id ? hydrateTransaction({ ...current, category }) : current,
+      );
       refreshDerivedState();
       saveData();
       render();
@@ -970,6 +992,15 @@ function getFilteredTransactions({ search }) {
   return state.transactions.filter((transaction) => {
     const monthMatches = state.monthFilter === "all" || transaction.date.startsWith(state.monthFilter);
     if (!monthMatches) {
+      return false;
+    }
+    const transactionFilterMatches =
+      state.transactionFilter === "all" ||
+      (state.transactionFilter === "needs-review" && !transaction.reviewed) ||
+      (state.transactionFilter === "uncategorized" && transaction.category === "Other") ||
+      (state.transactionFilter === "subscriptions" && (transaction.category === "Subscriptions" || Boolean(transaction.recurringKey))) ||
+      (state.transactionFilter === "tagged" && Boolean(transaction.tags?.length));
+    if (!transactionFilterMatches) {
       return false;
     }
     if (!search || !state.searchQuery) {
@@ -1123,6 +1154,7 @@ function loadLedgerFile(event) {
       state.goals = payload.goals;
       state.monthFilter = "all";
       state.searchQuery = "";
+      state.transactionFilter = "all";
       state.parsedImport = null;
       elements.searchInput.value = "";
       refreshDerivedState();
@@ -1195,25 +1227,31 @@ function saveBudgetsFromInputs() {
   showToast(`Saved assigned amounts for ${formatMonth(budgetMonth, monthFormatter)}.`, "success");
 }
 
-function copyBudgetsFromPreviousMonth() {
+function autoAssignBudgetsForMonth() {
   const budgetMonth = getBudgetMonth();
-  const previousMonth = Object.keys(state.budgets)
-    .filter((month) => month < budgetMonth && Object.keys(getBudgetsForMonth(month)).length)
-    .sort()
-    .pop();
-
-  if (!previousMonth) {
-    showToast("There is no earlier saved budget month to copy from yet.", "error");
+  const rows = buildBudgetRows(state.transactions, budgetMonth);
+  if (!rows.length) {
+    showToast("Import transactions before auto-assigning categories.", "error");
     return;
   }
 
-  state.budgets[budgetMonth] = { ...getBudgetsForMonth(previousMonth) };
+  const nextBudgets = {};
+  rows.forEach((row) => {
+    const suggested = Math.max(row.assigned, row.targetAssigned);
+    if (suggested > 0) {
+      nextBudgets[row.category] = Number(suggested.toFixed(2));
+    }
+  });
+
+  if (!Object.keys(nextBudgets).length) {
+    showToast("There are no underfunded categories to auto-assign right now.", "error");
+    return;
+  }
+
+  state.budgets[budgetMonth] = nextBudgets;
   saveData();
   render();
-  showToast(
-    `Copied assigned amounts from ${formatMonth(previousMonth, monthFormatter)} into ${formatMonth(budgetMonth, monthFormatter)}.`,
-    "success",
-  );
+  showToast(`Auto-assigned underfunded categories for ${formatMonth(budgetMonth, monthFormatter)}.`, "success");
 }
 
 async function clearBudgetsForActiveMonth() {

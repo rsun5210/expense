@@ -882,6 +882,47 @@ textarea {
   gap: 12px;
 }
 
+.review-card {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  font: inherit;
+}
+
+.review-card:focus-visible {
+  outline: 3px solid rgba(75, 107, 255, 0.24);
+  outline-offset: 2px;
+}
+
+.review-card .mini-card-value strong {
+  font-size: 1.2rem;
+}
+
+.plan-snapshot-card {
+  gap: 8px;
+  padding: 13px 15px;
+  background: rgba(240, 244, 248, 0.72);
+}
+
+.plan-snapshot-card::before {
+  height: 2px;
+  opacity: 0.72;
+}
+
+.plan-snapshot-card strong {
+  font-size: 1.22rem;
+  letter-spacing: -0.03em;
+}
+
+.transfer-card-heading {
+  background: rgba(235, 240, 246, 0.68);
+}
+
+.transfer-card-heading strong {
+  display: block;
+}
+
 .budget-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -919,6 +960,17 @@ textarea {
 .budget-caption {
   color: var(--muted-strong);
   line-height: 1.5;
+}
+
+.budget-underfunded {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.budget-underfunded.is-active {
+  color: #9b6400;
+  font-weight: 700;
 }
 
 .plan-card strong {
@@ -959,25 +1011,6 @@ textarea {
   color: var(--ink);
   font-size: 0.8rem;
   font-weight: 700;
-}
-
-.review-badge {
-  display: inline-flex;
-  width: fit-content;
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.review-badge.reviewed {
-  background: rgba(23, 192, 135, 0.12);
-  color: var(--accent-deep);
-}
-
-.review-badge.pending {
-  background: rgba(255, 180, 77, 0.16);
-  color: #9b6400;
 }
 
 .note-cell {
@@ -1025,6 +1058,18 @@ textarea {
 .goal-detail {
   margin: 0;
   color: var(--muted);
+}
+
+.transaction-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.transaction-filters .ghost-button.is-active {
+  background: rgba(75, 107, 255, 0.14);
+  border-color: rgba(75, 107, 255, 0.24);
+  color: var(--brand);
 }
 
 .transactions-panel table {
@@ -1509,6 +1554,10 @@ tr:last-child td {
 
   .transactions-toolbar .search-field {
     min-width: 100%;
+    width: 100%;
+  }
+
+  .transaction-filters {
     width: 100%;
   }
 

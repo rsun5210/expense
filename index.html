@@ -270,7 +270,7 @@
                   <h2>Assign your plan</h2>
                 </div>
                 <div class="budget-actions">
-                  <button id="copy-budgets-button" class="ghost-button" type="button">Copy previous month</button>
+                  <button id="auto-assign-budgets-button" class="ghost-button" type="button">Auto-assign underfunded</button>
                   <button id="save-budgets-button" class="primary-button" type="button">Save assigned amounts</button>
                   <button id="clear-budgets-button" class="ghost-button" type="button">Clear assigned amounts</button>
                 </div>
@@ -284,10 +284,10 @@
               <div class="panel-heading slim-heading">
                 <div>
                   <p class="section-label">6. Plan</p>
-                  <h2>Spending plan</h2>
+                  <h2>Plan snapshot</h2>
                 </div>
               </div>
-              <div id="plan-empty" class="empty-state">Import transactions to compare needs, wants, and savings.</div>
+              <div id="plan-empty" class="empty-state">Import transactions to get a compact needs, wants, and savings snapshot.</div>
               <div id="plan-grid" class="plan-grid"></div>
             </section>
           </div>
@@ -321,10 +321,10 @@
               <div class="panel-heading slim-heading">
                 <div>
                   <p class="section-label">8. Recurring</p>
-                  <h2>Likely subscriptions</h2>
+                  <h2>Upcoming bills</h2>
                 </div>
               </div>
-              <div id="recurring-empty" class="empty-state">We need repeat charges across months to detect subscriptions.</div>
+              <div id="recurring-empty" class="empty-state">Import repeat charges across months to forecast upcoming bills.</div>
               <div id="recurring-list" class="recurring-list"></div>
             </section>
 
@@ -332,7 +332,7 @@
               <div class="panel-heading slim-heading">
                 <div>
                   <p class="section-label">9. Accounts</p>
-                  <h2>Accounts and transfers</h2>
+                  <h2>Accounts</h2>
                 </div>
               </div>
               <div id="accounts-empty" class="empty-state">Import account or card columns to break spending out by source.</div>
@@ -371,10 +371,10 @@
               <div class="panel-heading slim-heading">
                 <div>
                   <p class="section-label">12. Merchants</p>
-                  <h2>Merchant trends</h2>
+                  <h2>Merchant changes</h2>
                 </div>
               </div>
-              <div id="merchant-insights-empty" class="empty-state">Import a month of spending to see top merchants and how they changed.</div>
+              <div id="merchant-insights-empty" class="empty-state">Import a month of spending to see the biggest merchant changes versus the prior month.</div>
               <div id="merchant-insights-list" class="account-list"></div>
             </section>
           </div>
@@ -393,6 +393,13 @@
                 Search
                 <input id="search-input" type="search" placeholder="Merchant, tag, note, institution..." />
               </label>
+            </div>
+            <div class="transaction-filters">
+              <button class="ghost-button small-button is-active" type="button" data-transaction-filter="all">All</button>
+              <button class="ghost-button small-button" type="button" data-transaction-filter="needs-review">Needs review</button>
+              <button class="ghost-button small-button" type="button" data-transaction-filter="uncategorized">Uncategorized</button>
+              <button class="ghost-button small-button" type="button" data-transaction-filter="subscriptions">Subscriptions</button>
+              <button class="ghost-button small-button" type="button" data-transaction-filter="tagged">Tagged</button>
             </div>
           </div>
 

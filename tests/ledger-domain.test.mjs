@@ -154,6 +154,8 @@ test("detectRecurringSeries and buildMonthlySeries summarize transaction history
   const monthly = buildMonthlySeries(transactions);
 
   assert.equal(recurring.get("spotify")?.count, 2);
+  assert.equal(recurring.get("spotify")?.averageIntervalDays, 28);
+  assert.equal(recurring.get("spotify")?.nextExpectedDate, "2026-03-29");
   assert.deepEqual(monthly, [
     { month: "2026-02", spending: 12.99, income: 0 },
     { month: "2026-03", spending: 12.99, income: 1200 },
@@ -269,6 +271,9 @@ test("buildBudgetRows carries available balances forward month to month", () => 
     {
       category: "Groceries",
       assigned: 100,
+      previousAssigned: 200,
+      targetAssigned: 200,
+      underfunded: 100,
       spent: 110,
       activity: 110,
       carryover: 140,
@@ -568,6 +573,26 @@ test("buildMerchantInsights compares this month against the prior month", () => 
     }),
     hydrateTransaction({
       id: "3",
+      date: "2026-03-08",
+      description: "City Rent",
+      merchant: "City Rent",
+      merchantKey: "city rent",
+      institution: "Checking",
+      amount: -900,
+      category: "Housing",
+    }),
+    hydrateTransaction({
+      id: "4",
+      date: "2026-04-01",
+      description: "City Rent",
+      merchant: "City Rent",
+      merchantKey: "city rent",
+      institution: "Checking",
+      amount: -300,
+      category: "Housing",
+    }),
+    hydrateTransaction({
+      id: "5",
       date: "2026-04-10",
       description: "Blue Bottle",
       merchant: "Blue Bottle",
@@ -585,6 +610,14 @@ test("buildMerchantInsights compares this month against the prior month", () => 
   });
 
   assert.deepEqual(insights, [
+    {
+      merchant: "City Rent",
+      amount: 300,
+      count: 1,
+      previousAmount: 900,
+      changeAmount: -600,
+      changePercent: -66.66666666666666,
+    },
     {
       merchant: "Trader Joe's",
       amount: 120,

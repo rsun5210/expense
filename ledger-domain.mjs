@@ -159,6 +159,12 @@ function getPreviousMonth(month) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function addDaysToDate(dateText, days) {
+  const date = new Date(`${dateText}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function getMonthlyMerchantSpend(transactions, isMoneyMovement) {
   const spendingByMonth = new Map();
 
@@ -333,25 +339,39 @@ export function detectRecurringSeries(transactions) {
 
   const recurring = new Map();
   groups.forEach((items, key) => {
+    const sortedItems = items.slice().sort((left, right) => left.date.localeCompare(right.date));
     const months = new Set(items.map((item) => item.date.slice(0, 7)));
-    if (items.length < 2 || months.size < 2) {
+    if (sortedItems.length < 2 || months.size < 2) {
       return;
     }
 
-    const amounts = items.map((item) => Math.abs(item.amount));
+    const amounts = sortedItems.map((item) => Math.abs(item.amount));
     const averageAmount = amounts.reduce((sum, value) => sum + value, 0) / amounts.length;
     const maxVariance = Math.max(...amounts.map((value) => Math.abs(value - averageAmount)));
     if (maxVariance > Math.max(averageAmount * 0.2, 8)) {
       return;
     }
 
+    const intervals = [];
+    for (let index = 1; index < sortedItems.length; index += 1) {
+      intervals.push(Math.abs(daysBetween(sortedItems[index].date, sortedItems[index - 1].date)));
+    }
+    const averageIntervalDays = intervals.length
+      ? Math.round(intervals.reduce((sum, value) => sum + value, 0) / intervals.length)
+      : 30;
+    const lastDate = sortedItems[sortedItems.length - 1].date;
+    const nextExpectedDate = addDaysToDate(lastDate, Math.max(averageIntervalDays, 1));
+
     recurring.set(key, {
       key,
-      label: items[0].merchant || items[0].description,
-      count: items.length,
+      label: sortedItems[0].merchant || sortedItems[0].description,
+      count: sortedItems.length,
       monthCount: months.size,
       averageAmount,
       frequencyLabel: months.size >= 2 ? "Likely monthly" : "Repeats",
+      averageIntervalDays,
+      lastDate,
+      nextExpectedDate,
     });
   });
 
@@ -460,6 +480,7 @@ export function buildBudgetRows({ month, transactions, budgetsByMonth = {}, budg
 
   months.forEach((monthKey) => {
     const monthAssignments = budgetsByMonth[monthKey] || {};
+    const previousAssignments = budgetsByMonth[getPreviousMonth(monthKey)] || {};
     const spendingByCategory = spendingByMonth.get(monthKey) || new Map();
     const categories = [
       ...new Set([
@@ -476,14 +497,20 @@ export function buildBudgetRows({ month, transactions, budgetsByMonth = {}, budg
       .map((category) => {
         const carryover = Number((availableByCategory.get(category) || 0).toFixed(2));
         const assigned = Number(Number(monthAssignments[category] || 0).toFixed(2));
+        const previousAssigned = Number(Number(previousAssignments[category] || 0).toFixed(2));
         const spent = Number((spendingByCategory.get(category) || 0).toFixed(2));
         const funding = carryover + assigned;
         const available = Number((funding - spent).toFixed(2));
+        const targetAssigned = Number(Math.max(previousAssigned, Math.max(spent - Math.max(carryover, 0), 0)).toFixed(2));
+        const underfunded = Number(Math.max(targetAssigned - assigned, 0).toFixed(2));
         const percentUsed = funding > 0 ? (spent / funding) * 100 : spent > 0 ? 100 : 0;
         nextAvailableByCategory.set(category, available);
         return {
           category,
           assigned,
+          previousAssigned,
+          targetAssigned,
+          underfunded,
           spent,
           activity: spent,
           carryover,
@@ -629,6 +656,11 @@ export function buildMerchantInsights({ transactions = [], month, isMoneyMovemen
         changePercent,
       };
     })
-    .sort((left, right) => right.amount - left.amount)
+    .sort(
+      (left, right) =>
+        Math.abs(right.changeAmount) - Math.abs(left.changeAmount) ||
+        right.amount - left.amount ||
+        right.count - left.count,
+    )
     .slice(0, 6);
 }
