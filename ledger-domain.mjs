@@ -134,7 +134,7 @@ export function sanitizeGoals(goals) {
     const targetMonth = String(goal.targetMonth || "").trim();
     const targetAmount = Number.parseFloat(String(goal.targetAmount));
 
-    if (!id || !name || !category || !targetMonth || !Number.isFinite(targetAmount) || targetAmount <= 0) {
+    if (!id || !name || !category || !isMonthKey(targetMonth) || !Number.isFinite(targetAmount) || targetAmount <= 0) {
       return [];
     }
 
@@ -157,6 +157,10 @@ function getPreviousMonth(month) {
   }
   const date = new Date(year, monthIndex - 2, 1);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function isMonthKey(value) {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value).trim());
 }
 
 function addDaysToDate(dateText, days) {

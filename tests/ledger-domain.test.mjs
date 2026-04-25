@@ -459,6 +459,7 @@ test("parseLedgerPayload normalizes imported transactions, notes, and budgets", 
     },
     goals: [
       { id: "goal-1", name: "Emergency fund", category: "Groceries", targetAmount: "500", targetMonth: "2026-06" },
+      { id: "goal-2", name: "Broken", category: "Groceries", targetAmount: "250", targetMonth: "2026-13" },
     ],
   });
 

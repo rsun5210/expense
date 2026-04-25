@@ -1412,7 +1412,8 @@ function parseGoalInput(value, existingId = "") {
     .split("|")
     .map((part) => cleanText(part));
   const amount = Number.parseFloat(targetAmount || "");
-  if (!name || !category || !targetMonth || !Number.isFinite(amount) || amount <= 0) {
+  const normalizedMonth = String(targetMonth || "");
+  if (!name || !category || !/^\d{4}-(0[1-9]|1[0-2])$/.test(normalizedMonth) || !Number.isFinite(amount) || amount <= 0) {
     return null;
   }
   return {
@@ -1420,7 +1421,7 @@ function parseGoalInput(value, existingId = "") {
     name,
     category,
     targetAmount: Number(amount.toFixed(2)),
-    targetMonth,
+    targetMonth: normalizedMonth,
   };
 }
 
